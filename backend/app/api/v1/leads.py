@@ -24,8 +24,9 @@ router = APIRouter(
 
 class LeadCreate(BaseModel):
     """Schema for creating a lead"""
-    name: str  # Frontend sends 'name', we split into first/last
-    first_name: Optional[str] = None  # Optional - can be used directly if provided
+    # Accept either 'name' (single field) OR 'first_name'/'last_name' (separate fields)
+    name: Optional[str] = None  # If provided, will be split into first/last
+    first_name: Optional[str] = None  # Can be provided directly
     last_name: Optional[str] = None
     phone: str
     email: Optional[EmailStr] = None
