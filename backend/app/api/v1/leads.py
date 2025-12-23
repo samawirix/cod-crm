@@ -24,7 +24,8 @@ router = APIRouter(
 
 class LeadCreate(BaseModel):
     """Schema for creating a lead"""
-    first_name: str
+    name: str  # Frontend sends 'name', we split into first/last
+    first_name: Optional[str] = None  # Optional - can be used directly if provided
     last_name: Optional[str] = None
     phone: str
     email: Optional[EmailStr] = None
@@ -362,7 +363,17 @@ def create_lead(
     """
     Create a new lead
     """
-    print(f"📝 POST /leads - Creating: {lead_data.first_name} {lead_data.last_name}")
+    # Split name into first_name and last_name
+    # Frontend sends 'name', we split: "John Doe" -> first_name="John", last_name="Doe"
+    if lead_data.name:
+        name_parts = lead_data.name.strip().split(' ', 1)
+        first_name = name_parts[0]
+        last_name = name_parts[1] if len(name_parts) > 1 else ""
+    else:
+        first_name = lead_data.first_name or "Unknown"
+        last_name = lead_data.last_name or ""
+    
+    print(f"📝 POST /leads - Creating: {first_name} {last_name}")
     
     # Convert string enums to actual enums
     try:
@@ -381,8 +392,8 @@ def create_lead(
     lead_email = lead_data.email if lead_data.email else f"no-email-{uuid.uuid4().hex[:12]}@placeholder.local"
     
     new_lead = Lead(
-        first_name=lead_data.first_name,
-        last_name=lead_data.last_name or "",  # DB has NOT NULL
+        first_name=first_name,
+        last_name=last_name,  # DB has NOT NULL
         phone=lead_data.phone,
         email=lead_email,  # DB has NOT NULL + UNIQUE
         alternate_phone=lead_data.alternate_phone or "",
