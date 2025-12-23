@@ -1,12 +1,19 @@
 'use client';
 
-import React from 'react';
+import React, { useEffect, useState } from 'react';
 import Link from 'next/link';
-import { usePathname } from 'next/navigation';
+import { usePathname, useRouter } from 'next/navigation';
 import {
     LayoutDashboard, Users, Phone, ShoppingCart, Package, Truck, Trophy,
     BarChart3, DollarSign, TrendingDown, Settings, LogOut, UserCircle
 } from 'lucide-react';
+
+interface User {
+    id: number;
+    email: string;
+    full_name: string;
+    role: string;
+}
 
 const navItems = [
     { name: 'Dashboard', href: '/dashboard', icon: LayoutDashboard },
@@ -25,10 +32,45 @@ const navItems = [
 
 export default function Sidebar() {
     const pathname = usePathname();
+    const router = useRouter();
+    const [user, setUser] = useState<User | null>(null);
+
+    useEffect(() => {
+        // Get user from localStorage
+        const userData = localStorage.getItem('user');
+        if (userData) {
+            try {
+                setUser(JSON.parse(userData));
+            } catch {
+                // Invalid user data
+            }
+        }
+    }, []);
 
     const handleLogout = () => {
         localStorage.removeItem('access_token');
-        window.location.href = '/login';
+        localStorage.removeItem('user');
+        router.push('/login');
+    };
+
+    // Get user initials for avatar
+    const getInitials = (name: string) => {
+        if (!name) return 'U';
+        const parts = name.split(' ');
+        if (parts.length >= 2) {
+            return (parts[0][0] + parts[1][0]).toUpperCase();
+        }
+        return name[0].toUpperCase();
+    };
+
+    // Get role badge color
+    const getRoleColor = (role: string) => {
+        switch (role?.toLowerCase()) {
+            case 'admin': return 'bg-purple-500';
+            case 'manager': return 'bg-blue-500';
+            case 'agent': return 'bg-green-500';
+            default: return 'bg-gray-500';
+        }
     };
 
     return (
@@ -72,13 +114,22 @@ export default function Sidebar() {
             {/* User */}
             <div className="p-3 border-t border-border">
                 <div className="flex items-center gap-3 p-2.5 rounded-md bg-muted/50">
-                    <div className="w-8 h-8 rounded-full bg-success-fg flex items-center justify-center text-white text-xs font-bold">
-                        A
+                    <div className={`w-8 h-8 rounded-full ${getRoleColor(user?.role || '')} flex items-center justify-center text-white text-xs font-bold`}>
+                        {getInitials(user?.full_name || 'User')}
                     </div>
                     <div className="flex-1 min-w-0">
-                        <div className="text-sm font-medium text-foreground truncate">Admin User</div>
-                        <div className="text-xs text-muted-foreground truncate">admin@cod-crm.com</div>
+                        <div className="text-sm font-medium text-foreground truncate">
+                            {user?.full_name || 'Loading...'}
+                        </div>
+                        <div className="text-xs text-muted-foreground truncate">
+                            {user?.email || ''}
+                        </div>
                     </div>
+                    {user?.role && (
+                        <span className={`px-1.5 py-0.5 text-[10px] font-medium ${getRoleColor(user.role)} text-white rounded`}>
+                            {user.role}
+                        </span>
+                    )}
                 </div>
                 <button
                     onClick={handleLogout}
