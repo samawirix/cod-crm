@@ -88,9 +88,15 @@ class Product(Base):
     # Relationships
     category = relationship("Category", back_populates="products")
     stock_movements = relationship("StockMovement", back_populates="product")
+    product_variants = relationship("ProductVariant", back_populates="product", cascade="all, delete-orphan")
     
     def __repr__(self):
         return f"<Product {self.sku}: {self.name}>"
+    
+    @property
+    def has_variants_records(self):
+        """Check if product has variant records in the database"""
+        return len(self.product_variants) > 0 if self.product_variants else False
     
     @property
     def profit_margin(self):

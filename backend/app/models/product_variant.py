@@ -5,7 +5,7 @@ Product Variant Model - For color/size/capacity variations with individual inven
 from sqlalchemy import Column, Integer, String, Float, Boolean, ForeignKey
 from sqlalchemy.orm import relationship
 from datetime import datetime
-from app.models.base import Base
+from app.core.database import Base
 
 
 class ProductVariant(Base):
@@ -18,7 +18,7 @@ class ProductVariant(Base):
     id = Column(Integer, primary_key=True, index=True)
     
     # Link to parent product
-    product_id = Column(Integer, nullable=False)  # Reference to products.id
+    product_id = Column(Integer, ForeignKey("products.id"), nullable=False)
     
     # Variant identification
     sku = Column(String(100), unique=True, nullable=False, index=True)  # e.g., "WATCH-PRO-BLACK"
@@ -42,6 +42,9 @@ class ProductVariant(Base):
     
     # Status
     is_active = Column(Boolean, default=True)
+    
+    # Relationship back to Product
+    product = relationship("Product", back_populates="product_variants")
     
     def __repr__(self):
         return f"<ProductVariant {self.sku}: {self.variant_name}>"

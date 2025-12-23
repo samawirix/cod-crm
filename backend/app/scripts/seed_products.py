@@ -1,5 +1,5 @@
 """
-Seed products with realistic variants
+Seed products with realistic variants - with proper image URLs for visual product selector
 """
 
 import sys
@@ -8,41 +8,73 @@ sys.path.append(str(Path(__file__).parent.parent.parent))
 
 from sqlalchemy.orm import Session
 from app.core.database import SessionLocal
-from app.models.product import Product
-from app.models.product_variant import ProductVariant
+# Import through models package to ensure relationships are properly initialized
+from app.models import Product, ProductVariant
 
 
 def seed_products_with_variants():
-    """Seed products with realistic Moroccan COD variants"""
+    """Seed products with realistic Moroccan COD variants and images"""
     db = SessionLocal()
     
     try:
         print("🌱 Seeding Products with Variants...")
         
-        # Clear existing variants
+        # Clear existing variants first (foreign key constraint)
         db.query(ProductVariant).delete()
         db.commit()
         print("✅ Cleared existing variants")
         
-        # Get existing products or create new ones
-        products = db.query(Product).limit(5).all()
-        
-        if len(products) < 3:
-            print("⚠️ Creating sample products...")
-            
-            # Product 1: Smart Watch Pro (Color variants)
+        # Product 1: Smart Watch Pro (Color variants)
+        watch = db.query(Product).filter(Product.sku == "WATCH-PRO").first()
+        if not watch:
             watch = Product(
                 name="Smart Watch Pro",
                 sku="WATCH-PRO",
-                selling_price=199.0,
-                cost_price=120.0,
+                selling_price=799.0,
+                cost_price=400.0,
                 stock_quantity=0,
                 image_url="https://images.unsplash.com/photo-1523275335684-37898b6baf30?w=400"
             )
             db.add(watch)
             db.commit()
-            
-            # Product 2: Running Shoes (Size variants)
+        else:
+            watch.image_url = "https://images.unsplash.com/photo-1523275335684-37898b6baf30?w=400"
+            db.commit()
+        
+        # Watch variants
+        watch_variants = [
+            ProductVariant(
+                product_id=watch.id,
+                sku="WATCH-PRO-BLACK",
+                variant_name="Black",
+                color="Black",
+                image_url="https://images.unsplash.com/photo-1523275335684-37898b6baf30?w=200",
+                stock_quantity=50
+            ),
+            ProductVariant(
+                product_id=watch.id,
+                sku="WATCH-PRO-SILVER",
+                variant_name="Silver",
+                color="Silver",
+                image_url="https://images.unsplash.com/photo-1579586337278-3befd40fd17a?w=200",
+                stock_quantity=30
+            ),
+            ProductVariant(
+                product_id=watch.id,
+                sku="WATCH-PRO-GOLD",
+                variant_name="Gold",
+                color="Gold",
+                price_override=899.0,  # Gold is more expensive
+                image_url="https://images.unsplash.com/photo-1622434641406-a158123450f9?w=200",
+                stock_quantity=15
+            ),
+        ]
+        db.add_all(watch_variants)
+        print(f"📦 Added 3 color variants for: {watch.name}")
+        
+        # Product 2: Running Shoes (Size variants)
+        shoes = db.query(Product).filter(Product.sku == "SHOES-RUN-M").first()
+        if not shoes:
             shoes = Product(
                 name="Running Shoes - Men",
                 sku="SHOES-RUN-M",
@@ -53,8 +85,26 @@ def seed_products_with_variants():
             )
             db.add(shoes)
             db.commit()
-            
-            # Product 3: Anti-Aging Face Cream (Capacity variants)
+        else:
+            shoes.image_url = "https://images.unsplash.com/photo-1542291026-7eec264c27ff?w=400"
+            db.commit()
+        
+        # Shoes variants (sizes)
+        for size in [39, 40, 41, 42, 43, 44]:
+            variant = ProductVariant(
+                product_id=shoes.id,
+                sku=f"SHOES-RUN-M-{size}",
+                variant_name=f"Size {size}",
+                size=str(size),
+                image_url="https://images.unsplash.com/photo-1542291026-7eec264c27ff?w=200",
+                stock_quantity=25
+            )
+            db.add(variant)
+        print(f"📦 Added 6 size variants for: {shoes.name}")
+        
+        # Product 3: Anti-Aging Face Cream (Capacity variants)
+        cream = db.query(Product).filter(Product.sku == "CREAM-ANTI-AGE").first()
+        if not cream:
             cream = Product(
                 name="Anti-Aging Face Cream",
                 sku="CREAM-ANTI-AGE",
@@ -65,79 +115,55 @@ def seed_products_with_variants():
             )
             db.add(cream)
             db.commit()
-            
-            products = [watch, shoes, cream]
-        
-        # Add variants to first product (Color variants)
-        if len(products) >= 1:
-            product = products[0]
-            print(f"📦 Adding color variants to: {product.name}")
-            
-            colors = [
-                ("Black", "Black", 50),
-                ("Silver", "Silver", 30),
-                ("Gold", "Gold", 15),
-            ]
-            
-            for color_name, color, stock in colors:
-                variant = ProductVariant(
-                    product_id=product.id,
-                    sku=f"{product.sku}-{color_name.upper()}",
-                    variant_name=color_name,
-                    color=color,
-                    image_url=product.image_url,
-                    stock_quantity=stock,
-                    price_override=229.0 if color_name == "Gold" else None
-                )
-                db.add(variant)
+        else:
+            cream.image_url = "https://images.unsplash.com/photo-1556228578-8c89e6adf883?w=400"
             db.commit()
         
-        # Add variants to second product (Size variants)
-        if len(products) >= 2:
-            product = products[1]
-            print(f"📦 Adding size variants to: {product.name}")
-            
-            sizes = [39, 40, 41, 42, 43, 44]
-            
-            for size in sizes:
-                variant = ProductVariant(
-                    product_id=product.id,
-                    sku=f"{product.sku}-{size}",
-                    variant_name=f"Size {size}",
-                    size=str(size),
-                    image_url=product.image_url,
-                    stock_quantity=25
-                )
-                db.add(variant)
-            db.commit()
+        # Cream variants (capacity)
+        cream_variants = [
+            ProductVariant(
+                product_id=cream.id,
+                sku="CREAM-ANTI-AGE-50ML",
+                variant_name="50ml",
+                capacity="50ml",
+                image_url="https://images.unsplash.com/photo-1556228578-8c89e6adf883?w=200",
+                stock_quantity=100
+            ),
+            ProductVariant(
+                product_id=cream.id,
+                sku="CREAM-ANTI-AGE-100ML",
+                variant_name="100ml",
+                capacity="100ml",
+                price_override=199.0,
+                image_url="https://images.unsplash.com/photo-1556228578-8c89e6adf883?w=200",
+                stock_quantity=60
+            ),
+        ]
+        db.add_all(cream_variants)
+        print(f"📦 Added 2 capacity variants for: {cream.name}")
         
-        # Add variants to third product (Capacity variants)
-        if len(products) >= 3:
-            product = products[2]
-            print(f"📦 Adding capacity variants to: {product.name}")
-            
-            capacities = [
-                ("50ml", 100, None),
-                ("100ml", 60, 199.0),
-            ]
-            
-            for capacity, stock, price in capacities:
-                variant = ProductVariant(
-                    product_id=product.id,
-                    sku=f"{product.sku}-{capacity.upper()}",
-                    variant_name=capacity,
-                    capacity=capacity,
-                    image_url=product.image_url,
-                    stock_quantity=stock,
-                    price_override=price
-                )
-                db.add(variant)
-            db.commit()
+        # Product 4: Wireless Bluetooth Earbuds (No variants - single product)
+        earbuds = db.query(Product).filter(Product.sku == "EARBUDS-BT-001").first()
+        if not earbuds:
+            earbuds = Product(
+                name="Wireless Bluetooth Earbuds",
+                sku="EARBUDS-BT-001",
+                selling_price=180.0,
+                cost_price=90.0,
+                stock_quantity=75,
+                image_url="https://images.unsplash.com/photo-1590658268037-6bf12165a8df?w=400"
+            )
+            db.add(earbuds)
+        else:
+            earbuds.image_url = "https://images.unsplash.com/photo-1590658268037-6bf12165a8df?w=400"
+        
+        db.commit()
         
         # Print summary
+        total_products = db.query(Product).count()
         total_variants = db.query(ProductVariant).count()
         print(f"\n✅ Products seeded successfully!")
-        print(f"   - {len(products)} products")
+        print(f"   - {total_products} products")
         print(f"   - {total_variants} variants")
         
     except Exception as e:

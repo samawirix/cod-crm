@@ -34,15 +34,33 @@ interface Lead {
     returned_orders?: number;
 }
 
+interface ProductVariant {
+    id: number;
+    product_id: number;
+    variant_name: string;
+    sku: string;
+    color?: string;
+    size?: string;
+    capacity?: string;
+    image_url?: string;
+    price_override?: number;
+    cost_override?: number;
+    stock_quantity: number;
+    is_active: boolean;
+    is_low_stock: boolean;
+    is_in_stock: boolean;
+}
+
 interface Product {
     id: number;
     name: string;
-    selling_price: number;  // Changed from 'price' to match API
+    selling_price: number;
     cost_price?: number;
     stock_quantity: number;
-    variants?: { [key: string]: string[] };
-    has_variants?: boolean;
+    variants?: { [key: string]: string[] };  // JSON variants column
+    has_variants?: boolean;  // JSON variants flag
     image_url?: string;
+    product_variants?: ProductVariant[];  // Database ProductVariant records
 }
 
 interface OrderItem {
@@ -159,16 +177,39 @@ export default function CallCenterPage() {
         refetchInterval: 30000,
     });
 
-    // Products
+    // Products with variants
     const { data: productsData } = useQuery({
-        queryKey: ['products'],
+        queryKey: ['products-with-variants'],
         queryFn: async () => {
             const token = localStorage.getItem('access_token');
+
+            // Fetch products
             const res = await fetch(`${API_BASE_URL}/api/v1/products/`, {
                 headers: { Authorization: `Bearer ${token}` },
             });
             const data = await res.json();
-            return data.products || data;
+            const productsList = data.products || data;
+
+            // Fetch variants for each product
+            const productsWithVariants = await Promise.all(
+                productsList.map(async (product: Product) => {
+                    try {
+                        const variantRes = await fetch(
+                            `${API_BASE_URL}/api/v1/products/${product.id}/variants`,
+                            { headers: { Authorization: `Bearer ${token}` } }
+                        );
+                        const variants = await variantRes.json();
+                        return {
+                            ...product,
+                            product_variants: Array.isArray(variants) ? variants : []
+                        };
+                    } catch {
+                        return { ...product, product_variants: [] };
+                    }
+                })
+            );
+
+            return productsWithVariants;
         },
     });
     const products: Product[] = productsData || [];
@@ -798,7 +839,7 @@ export default function CallCenterPage() {
                                     🛒 ORDER BUILDER
                                 </h4>
 
-                                {/* Product Selection */}
+                                {/* Product Selection - With Variants */}
                                 <div style={{ display: 'grid', gridTemplateColumns: '1fr auto', gap: '8px', marginBottom: '12px' }}>
                                     <select
                                         value={selectedProduct?.id || ''}
@@ -813,11 +854,31 @@ export default function CallCenterPage() {
                                         }}
                                     >
                                         <option value="">Select product...</option>
-                                        {products.map((p) => (
-                                            <option key={p.id} value={p.id}>
-                                                {p.name} - {p.selling_price} MAD {p.stock_quantity < 5 ? '⚠️' : ''}
-                                            </option>
-                                        ))}
+                                        {products.map((p) => {
+                                            // Products with variants - show as optgroup with variant options
+                                            if (p.product_variants && p.product_variants.length > 0) {
+                                                return (
+                                                    <optgroup key={p.id} label={`📦 ${p.name}`}>
+                                                        {p.product_variants.map(v => (
+                                                            <option
+                                                                key={`${p.id}-${v.id}`}
+                                                                value={p.id}
+                                                                data-variant-id={v.id}
+                                                                disabled={!v.is_in_stock}
+                                                            >
+                                                                {v.variant_name} • {v.price_override || p.selling_price} MAD • {v.stock_quantity} in stock {!v.is_in_stock ? '❌' : ''}
+                                                            </option>
+                                                        ))}
+                                                    </optgroup>
+                                                );
+                                            }
+                                            // Products without variants - show as single option
+                                            return (
+                                                <option key={p.id} value={p.id}>
+                                                    {p.name} - {p.selling_price} MAD {p.stock_quantity < 5 ? '⚠️' : ''}
+                                                </option>
+                                            );
+                                        })}
                                     </select>
 
                                     <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
