@@ -83,12 +83,12 @@ class CallCenterOrderItem(BaseModel):
 class CallCenterOrderCreate(BaseModel):
     """Flexible schema for Call Center order creation"""
     lead_id: Optional[int] = None
-    customer_name: str
-    customer_phone: str
+    customer_name: Optional[str] = ""
+    customer_phone: Optional[str] = ""
     city: Optional[str] = None
     zone: Optional[str] = None
     address: Optional[str] = None
-    items: List[CallCenterOrderItem]
+    items: Optional[List[CallCenterOrderItem]] = []
     subtotal: Optional[float] = 0
     shipping_cost: Optional[float] = 0
     total_amount: Optional[float] = 0
@@ -98,6 +98,11 @@ class CallCenterOrderCreate(BaseModel):
     notes: Optional[str] = None
     source: Optional[str] = "CALL_CENTER"
     status: Optional[str] = "CONFIRMED"
+    # Additional fields for simple frontend schema
+    payment_method: Optional[str] = "cod"
+    shipping_address: Optional[str] = None
+    shipping_city: Optional[str] = None
+    shipping_zone: Optional[str] = None
 
 @router.post("/call-center")
 async def create_call_center_order(
@@ -107,12 +112,32 @@ async def create_call_center_order(
 ):
     """
     Create order from Call Center with flexible item structure
+    Supports both simple schema (lead_id + total) and complex schema (with items)
     """
     from app.models.product import Product
     
-    print(f"📦 Call Center Order: {order_data.customer_name}, {len(order_data.items)} items")
+    # Get lead info if lead_id provided and customer info not provided
+    lead = None
+    customer_name = order_data.customer_name
+    customer_phone = order_data.customer_phone
+    city = order_data.city or order_data.shipping_city
+    address = order_data.address or order_data.shipping_address
     
-    # Validate and calculate items
+    if order_data.lead_id:
+        lead = db.query(Lead).filter(Lead.id == order_data.lead_id).first()
+        if lead:
+            if not customer_name:
+                customer_name = f"{lead.first_name or ''} {lead.last_name or ''}".strip() or f"Lead {lead.id}"
+            if not customer_phone:
+                customer_phone = lead.phone or ""
+            if not city:
+                city = lead.city or ""
+            if not address:
+                address = lead.address or ""
+    
+    print(f"📦 Call Center Order: {customer_name}, {len(order_data.items or [])} items")
+    
+    # Validate and calculate items (may be empty for simple orders)
     order_items_data = []
     calculated_subtotal = 0
     product_names = []
@@ -123,7 +148,7 @@ async def create_call_center_order(
         product = db.query(Product).filter(Product.id == item.product_id).first()
         
         if product:
-            unit_price = item.unit_price if item.unit_price > 0 else (product.price or 0)
+            unit_price = item.unit_price if item.unit_price > 0 else (product.selling_price or 0)
             product_name = item.product_name or product.name
             product_sku = getattr(product, 'sku', None) or f"SKU-{item.product_id}"
             cost_price = getattr(product, 'cost_price', None) or (unit_price * 0.6)
@@ -163,11 +188,11 @@ async def create_call_center_order(
     order = Order(
         order_number=order_number,
         lead_id=order_data.lead_id,
-        customer_name=order_data.customer_name,
-        customer_phone=order_data.customer_phone,
-        delivery_address=order_data.address or "",
-        city=order_data.city or "",
-        product_name=", ".join(product_names[:3]) + ("..." if len(product_names) > 3 else ""),
+        customer_name=customer_name or "Call Center Order",
+        customer_phone=customer_phone or "",
+        delivery_address=address or "",
+        city=city or "",
+        product_name=", ".join(product_names[:3]) + ("..." if len(product_names) > 3 else "") if product_names else "Order",
         quantity=total_quantity,
         unit_price=subtotal / total_quantity if total_quantity > 0 else 0,
         subtotal=subtotal,
