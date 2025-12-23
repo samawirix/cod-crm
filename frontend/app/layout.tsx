@@ -3,6 +3,8 @@ import { Inter } from "next/font/google";
 import "./globals.css";
 import Providers from "./providers";
 import MainLayout from "@/components/MainLayout";
+import { NotificationProvider } from "@/components/providers/NotificationProvider";
+import { Toaster } from "sonner";
 
 const inter = Inter({
   subsets: ["latin"],
@@ -20,13 +22,24 @@ export default function RootLayout({
 }: Readonly<{
   children: React.ReactNode;
 }>) {
+  // Default agent ID for notifications (in production, get from auth context)
+  const agentId = 1;
+
   return (
     <html lang="en" className={inter.variable}>
       <body className={`${inter.className} antialiased tracking-tight`}>
         <Providers>
-          <MainLayout>
-            {children}
-          </MainLayout>
+          <NotificationProvider agentId={agentId}>
+            <MainLayout>
+              {children}
+            </MainLayout>
+            <Toaster
+              position="top-right"
+              richColors
+              theme="dark"
+              closeButton
+            />
+          </NotificationProvider>
         </Providers>
       </body>
     </html>

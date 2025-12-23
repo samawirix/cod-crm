@@ -77,7 +77,21 @@ export default function ProductsPage() {
         selling_price: '',
         stock_quantity: '',
         low_stock_threshold: '10',
+        image_url: '',
     });
+    // Variants for new product
+    const [newVariants, setNewVariants] = useState<{
+        variant_name: string;
+        sku: string;
+        color: string;
+        size: string;
+        capacity: string;
+        image_url: string;
+        price_override: string;
+        stock_quantity: string;
+    }[]>([]);
+    const [showVariants, setShowVariants] = useState(false);
+
     const [stockAdjustment, setStockAdjustment] = useState({
         quantity: '',
         reason: '',
@@ -559,6 +573,123 @@ export default function ProductsPage() {
                                 placeholder="Product description..."
                                 className="bg-slate-700 border-slate-600 text-white min-h-[80px] mt-1"
                             />
+                        </div>
+
+                        {/* Image URL */}
+                        <div className="col-span-2">
+                            <Label className="text-slate-300">Image URL</Label>
+                            <Input
+                                value={newProduct.image_url}
+                                onChange={(e) => setNewProduct({ ...newProduct, image_url: e.target.value })}
+                                placeholder="https://example.com/image.jpg"
+                                className="bg-slate-700 border-slate-600 text-white mt-1"
+                            />
+                        </div>
+
+                        {/* Variants Section */}
+                        <div className="col-span-2 border-t border-slate-700 pt-4 mt-2">
+                            <div className="flex items-center justify-between mb-3">
+                                <Label className="text-slate-300 text-base font-semibold">
+                                    Product Variations (Colors, Sizes, etc.)
+                                </Label>
+                                <Button
+                                    type="button"
+                                    variant="outline"
+                                    size="sm"
+                                    onClick={() => setShowVariants(!showVariants)}
+                                    className="border-slate-600 text-slate-300"
+                                >
+                                    {showVariants ? 'Hide Variants' : 'Add Variants'}
+                                </Button>
+                            </div>
+
+                            {showVariants && (
+                                <div className="space-y-3 bg-slate-700/30 p-4 rounded-lg">
+                                    {newVariants.map((variant, idx) => (
+                                        <div key={idx} className="grid grid-cols-4 gap-2 p-3 bg-slate-800 rounded border border-slate-600">
+                                            <Input
+                                                placeholder="Variant Name (e.g., Black)"
+                                                value={variant.variant_name}
+                                                onChange={(e) => {
+                                                    const updated = [...newVariants];
+                                                    updated[idx].variant_name = e.target.value;
+                                                    setNewVariants(updated);
+                                                }}
+                                                className="bg-slate-700 border-slate-600 text-white text-sm"
+                                            />
+                                            <Input
+                                                placeholder="SKU (e.g., PROD-BLK)"
+                                                value={variant.sku}
+                                                onChange={(e) => {
+                                                    const updated = [...newVariants];
+                                                    updated[idx].sku = e.target.value.toUpperCase();
+                                                    setNewVariants(updated);
+                                                }}
+                                                className="bg-slate-700 border-slate-600 text-white text-sm"
+                                            />
+                                            <Input
+                                                placeholder="Price Override"
+                                                type="number"
+                                                value={variant.price_override}
+                                                onChange={(e) => {
+                                                    const updated = [...newVariants];
+                                                    updated[idx].price_override = e.target.value;
+                                                    setNewVariants(updated);
+                                                }}
+                                                className="bg-slate-700 border-slate-600 text-white text-sm"
+                                            />
+                                            <div className="flex gap-2">
+                                                <Input
+                                                    placeholder="Stock"
+                                                    type="number"
+                                                    value={variant.stock_quantity}
+                                                    onChange={(e) => {
+                                                        const updated = [...newVariants];
+                                                        updated[idx].stock_quantity = e.target.value;
+                                                        setNewVariants(updated);
+                                                    }}
+                                                    className="bg-slate-700 border-slate-600 text-white text-sm flex-1"
+                                                />
+                                                <Button
+                                                    type="button"
+                                                    variant="ghost"
+                                                    size="sm"
+                                                    onClick={() => {
+                                                        setNewVariants(newVariants.filter((_, i) => i !== idx));
+                                                    }}
+                                                    className="text-red-400 hover:text-red-300 px-2"
+                                                >
+                                                    <Trash2 className="h-4 w-4" />
+                                                </Button>
+                                            </div>
+                                        </div>
+                                    ))}
+
+                                    <Button
+                                        type="button"
+                                        variant="outline"
+                                        size="sm"
+                                        onClick={() => setNewVariants([...newVariants, {
+                                            variant_name: '',
+                                            sku: '',
+                                            color: '',
+                                            size: '',
+                                            capacity: '',
+                                            image_url: '',
+                                            price_override: '',
+                                            stock_quantity: ''
+                                        }])}
+                                        className="w-full border-dashed border-slate-500 text-slate-400"
+                                    >
+                                        <Plus className="h-4 w-4 mr-2" />
+                                        Add Another Variant
+                                    </Button>
+
+                                    <p className="text-xs text-slate-400">
+                                        Variants will be created after the product is added. You can manage them from the product details page.
+                                    </p>
+                                </div>
+                            )}
                         </div>
                     </div>
                     <DialogFooter>
