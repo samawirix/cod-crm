@@ -891,6 +891,102 @@ export default function CallCenterPage() {
                                     + Add to Order {selectedProduct && `(${((Number(selectedProduct.price) || 0) * quantity).toFixed(0)} MAD)`}
                                 </button>
 
+                                {/* Visual Product Confirmation Card */}
+                                {selectedProduct && (
+                                    <div style={{
+                                        padding: '12px',
+                                        backgroundColor: 'rgba(31, 111, 235, 0.1)',
+                                        border: '1px solid rgba(31, 111, 235, 0.3)',
+                                        borderRadius: '8px',
+                                        marginBottom: '12px',
+                                        display: 'flex',
+                                        alignItems: 'flex-start',
+                                        gap: '12px',
+                                    }}>
+                                        {/* Product Image */}
+                                        <div style={{
+                                            width: '64px',
+                                            height: '64px',
+                                            borderRadius: '6px',
+                                            backgroundColor: '#21262d',
+                                            border: '1px solid #30363d',
+                                            display: 'flex',
+                                            alignItems: 'center',
+                                            justifyContent: 'center',
+                                            overflow: 'hidden',
+                                            flexShrink: 0,
+                                        }}>
+                                            {selectedProduct.image_url ? (
+                                                <img
+                                                    src={selectedProduct.image_url}
+                                                    alt={selectedProduct.name}
+                                                    style={{
+                                                        width: '100%',
+                                                        height: '100%',
+                                                        objectFit: 'cover',
+                                                    }}
+                                                    onError={(e) => {
+                                                        (e.target as HTMLImageElement).style.display = 'none';
+                                                    }}
+                                                />
+                                            ) : (
+                                                <Package size={24} color="#8b949e" />
+                                            )}
+                                        </div>
+
+                                        {/* Product Details */}
+                                        <div style={{ flex: 1 }}>
+                                            <h4 style={{ fontSize: '14px', fontWeight: 600, color: '#e6edf3', marginBottom: '4px' }}>
+                                                {selectedProduct.name}
+                                            </h4>
+
+                                            {/* Selected Variants */}
+                                            {Object.keys(selectedVariants).length > 0 && (
+                                                <div style={{ display: 'flex', gap: '6px', flexWrap: 'wrap', marginBottom: '6px' }}>
+                                                    {Object.entries(selectedVariants).map(([key, value]) => (
+                                                        value && (
+                                                            <span key={key} style={{
+                                                                padding: '2px 8px',
+                                                                backgroundColor: 'rgba(63, 185, 80, 0.15)',
+                                                                border: '1px solid rgba(63, 185, 80, 0.3)',
+                                                                borderRadius: '4px',
+                                                                fontSize: '11px',
+                                                                color: '#3fb950',
+                                                            }}>
+                                                                {key}: {value}
+                                                            </span>
+                                                        )
+                                                    ))}
+                                                </div>
+                                            )}
+
+                                            <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                                                <span style={{ fontSize: '18px', fontWeight: 700, color: '#3fb950' }}>
+                                                    {((Number(selectedProduct.price) || 0) * quantity).toFixed(0)} MAD
+                                                </span>
+                                                <span style={{
+                                                    padding: '2px 8px',
+                                                    borderRadius: '4px',
+                                                    fontSize: '10px',
+                                                    fontWeight: 500,
+                                                    backgroundColor: selectedProduct.stock_quantity > 10
+                                                        ? 'rgba(63, 185, 80, 0.15)'
+                                                        : selectedProduct.stock_quantity > 0
+                                                            ? 'rgba(210, 153, 34, 0.15)'
+                                                            : 'rgba(248, 81, 73, 0.15)',
+                                                    color: selectedProduct.stock_quantity > 10
+                                                        ? '#3fb950'
+                                                        : selectedProduct.stock_quantity > 0
+                                                            ? '#d29922'
+                                                            : '#f85149',
+                                                }}>
+                                                    {selectedProduct.stock_quantity} in stock
+                                                </span>
+                                            </div>
+                                        </div>
+                                    </div>
+                                )}
+
                                 {/* Order Items */}
                                 {orderItems.length > 0 && (
                                     <div style={{ marginBottom: '12px' }}>

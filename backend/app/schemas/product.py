@@ -3,7 +3,39 @@ from typing import Optional, List, Dict, Any
 from datetime import datetime
 
 
-# Category Schemas
+# ============== PRODUCT VARIANT SCHEMAS ==============
+
+class ProductVariantBase(BaseModel):
+    """Base variant schema"""
+    variant_name: str
+    sku: str
+    color: Optional[str] = None
+    size: Optional[str] = None
+    capacity: Optional[str] = None
+    image_url: Optional[str] = None
+    price_override: Optional[float] = None
+    cost_override: Optional[float] = None
+    stock_quantity: int = 0
+    is_active: bool = True
+
+
+class ProductVariantCreate(ProductVariantBase):
+    """Schema for creating variant"""
+    pass
+
+
+class ProductVariantResponse(ProductVariantBase):
+    """Schema for variant response"""
+    id: int
+    product_id: int
+    is_low_stock: bool = False
+    is_in_stock: bool = True
+    
+    class Config:
+        from_attributes = True
+
+
+# ============== CATEGORY SCHEMAS ==============
 class CategoryCreate(BaseModel):
     name: str
     description: Optional[str] = None

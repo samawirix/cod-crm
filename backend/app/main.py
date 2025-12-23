@@ -18,6 +18,7 @@ from app.api.v1.calls import router as calls_router
 from app.api.v1.couriers import router as couriers_router
 from app.api.v1.shipments import router as shipments_router
 from app.api.v1.bordereaux import router as bordereaux_router
+from app.api.v1.websockets import websocket_endpoint
 
 # Configure logging
 logging.basicConfig(level=logging.INFO)
@@ -62,6 +63,9 @@ app.include_router(calls_router, prefix="/api/v1/calls", tags=["calls"])
 app.include_router(couriers_router, prefix="/api/v1/couriers", tags=["couriers"])
 app.include_router(shipments_router, prefix="/api/v1/shipments", tags=["shipments"])
 app.include_router(bordereaux_router, prefix="/api/v1/bordereaux", tags=["bordereaux"])
+
+# WebSocket endpoints
+app.websocket("/ws/notifications/{agent_id}")(websocket_endpoint)
 
 @app.get("/")
 async def root():

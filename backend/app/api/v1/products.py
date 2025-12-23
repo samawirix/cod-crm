@@ -4,11 +4,14 @@ from typing import Optional, List
 
 from app.core.database import get_db
 from app.models.user import User
+from app.models.product import Product
+from app.models.product_variant import ProductVariant
 from app.services.product_service import ProductService
 from app.schemas.product import (
     ProductCreate, ProductUpdate, ProductResponse, ProductListResponse,
     CategoryCreate, CategoryUpdate, CategoryResponse,
-    StockAdjustment, StockMovementResponse, InventoryStats
+    StockAdjustment, StockMovementResponse, InventoryStats,
+    ProductVariantCreate, ProductVariantResponse
 )
 
 router = APIRouter()
@@ -245,3 +248,112 @@ async def get_stock_movements(
     """Get stock movement history"""
     service = ProductService(db)
     return service.get_stock_movements(product_id, limit)
+
+
+# ============ PRODUCT VARIANT ENDPOINTS ============
+
+@router.get("/{product_id}/variants", response_model=List[ProductVariantResponse])
+async def get_product_variants(
+    product_id: int,
+    db: Session = Depends(get_db),
+    current_user = Depends(get_current_user)
+):
+    """Get all variants for a product"""
+    product = db.query(Product).filter(Product.id == product_id).first()
+    if not product:
+        raise HTTPException(status_code=404, detail="Product not found")
+    
+    variants = db.query(ProductVariant).filter(
+        ProductVariant.product_id == product_id,
+        ProductVariant.is_active == True
+    ).all()
+    
+    return variants
+
+
+@router.post("/{product_id}/variants", response_model=ProductVariantResponse, status_code=201)
+async def create_product_variant(
+    product_id: int,
+    variant: ProductVariantCreate,
+    db: Session = Depends(get_db),
+    current_user = Depends(get_current_user)
+):
+    """Create a new variant for a product"""
+    # Check if product exists
+    product = db.query(Product).filter(Product.id == product_id).first()
+    if not product:
+        raise HTTPException(status_code=404, detail="Product not found")
+    
+    # Check if SKU is unique
+    existing = db.query(ProductVariant).filter(ProductVariant.sku == variant.sku).first()
+    if existing:
+        raise HTTPException(status_code=400, detail="SKU already exists")
+    
+    # Create variant
+    new_variant = ProductVariant(
+        product_id=product_id,
+        sku=variant.sku,
+        variant_name=variant.variant_name,
+        color=variant.color,
+        size=variant.size,
+        capacity=variant.capacity,
+        image_url=variant.image_url,
+        price_override=variant.price_override,
+        cost_override=variant.cost_override,
+        stock_quantity=variant.stock_quantity,
+        is_active=variant.is_active
+    )
+    
+    db.add(new_variant)
+    db.commit()
+    db.refresh(new_variant)
+    
+    return new_variant
+
+
+@router.put("/variants/{variant_id}", response_model=ProductVariantResponse)
+async def update_product_variant(
+    variant_id: int,
+    variant_update: ProductVariantCreate,
+    db: Session = Depends(get_db),
+    current_user = Depends(get_current_user)
+):
+    """Update a variant"""
+    variant = db.query(ProductVariant).filter(ProductVariant.id == variant_id).first()
+    if not variant:
+        raise HTTPException(status_code=404, detail="Variant not found")
+    
+    # Update fields
+    variant.variant_name = variant_update.variant_name
+    variant.sku = variant_update.sku
+    variant.color = variant_update.color
+    variant.size = variant_update.size
+    variant.capacity = variant_update.capacity
+    variant.image_url = variant_update.image_url
+    variant.price_override = variant_update.price_override
+    variant.cost_override = variant_update.cost_override
+    variant.stock_quantity = variant_update.stock_quantity
+    variant.is_active = variant_update.is_active
+    
+    db.commit()
+    db.refresh(variant)
+    
+    return variant
+
+
+@router.delete("/variants/{variant_id}")
+async def delete_product_variant(
+    variant_id: int,
+    db: Session = Depends(get_db),
+    current_user = Depends(get_current_user)
+):
+    """Delete a variant (soft delete)"""
+    variant = db.query(ProductVariant).filter(ProductVariant.id == variant_id).first()
+    if not variant:
+        raise HTTPException(status_code=404, detail="Variant not found")
+    
+    variant.is_active = False
+    db.commit()
+    
+    return {"message": "Variant deleted successfully"}
+

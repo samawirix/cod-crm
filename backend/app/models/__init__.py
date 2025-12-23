@@ -18,6 +18,7 @@ from app.models.shipment import Shipment, ShipmentStatus
 from app.models.shipment_tracking import ShipmentTracking
 from app.models.bordereau import Bordereau, BordereauStatus
 from app.models.transaction import Transaction
+from app.models.product_variant import ProductVariant
 
 __all__ = [
     'Base',
@@ -43,4 +44,5 @@ __all__ = [
     'Bordereau',
     'BordereauStatus',
     'Transaction',
+    'ProductVariant',
 ]
