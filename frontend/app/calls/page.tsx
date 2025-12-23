@@ -37,7 +37,7 @@ interface Lead {
 interface Product {
     id: number;
     name: string;
-    price: number;
+    selling_price: number;  // Changed from 'price' to match API
     cost_price?: number;
     stock_quantity: number;
     variants?: { [key: string]: string[] };
@@ -305,7 +305,7 @@ export default function CallCenterPage() {
         if (selectedProduct.has_variants && !allVariantsSelected()) return;
 
         // Ensure price is a valid number
-        const price = Number(selectedProduct.price) || 0;
+        const price = Number(selectedProduct.selling_price) || 0;
 
         const variantLabel = Object.values(selectedVariants).join(' / ');
 
@@ -815,7 +815,7 @@ export default function CallCenterPage() {
                                         <option value="">Select product...</option>
                                         {products.map((p) => (
                                             <option key={p.id} value={p.id}>
-                                                {p.name} - {p.price} MAD {p.stock_quantity < 5 ? '⚠️' : ''}
+                                                {p.name} - {p.selling_price} MAD {p.stock_quantity < 5 ? '⚠️' : ''}
                                             </option>
                                         ))}
                                     </select>
@@ -888,7 +888,7 @@ export default function CallCenterPage() {
                                         marginBottom: '12px',
                                     }}
                                 >
-                                    + Add to Order {selectedProduct && `(${((Number(selectedProduct.price) || 0) * quantity).toFixed(0)} MAD)`}
+                                    + Add to Order {selectedProduct && `(${((Number(selectedProduct.selling_price) || 0) * quantity).toFixed(0)} MAD)`}
                                 </button>
 
                                 {/* Visual Product Confirmation Card */}
@@ -962,7 +962,7 @@ export default function CallCenterPage() {
 
                                             <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
                                                 <span style={{ fontSize: '18px', fontWeight: 700, color: '#3fb950' }}>
-                                                    {((Number(selectedProduct.price) || 0) * quantity).toFixed(0)} MAD
+                                                    {((Number(selectedProduct.selling_price) || 0) * quantity).toFixed(0)} MAD
                                                 </span>
                                                 <span style={{
                                                     padding: '2px 8px',
