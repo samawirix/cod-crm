@@ -1,0 +1,133 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Frontend Login Test</title>
+    <style>
+        body { font-family: Arial, sans-serif; margin: 40px; background: #1a1a1a; color: white; }
+        .container { max-width: 600px; margin: 0 auto; }
+        .test-box { background: #2a2a2a; padding: 20px; margin: 20px 0; border-radius: 8px; }
+        button { background: #007bff; color: white; border: none; padding: 10px 20px; border-radius: 4px; cursor: pointer; margin: 5px; }
+        button:hover { background: #0056b3; }
+        .result { background: #333; padding: 10px; margin: 10px 0; border-radius: 4px; white-space: pre-wrap; }
+        .success { border-left: 4px solid #28a745; }
+        .error { border-left: 4px solid #dc3545; }
+        input { padding: 8px; margin: 5px; border: 1px solid #555; background: #333; color: white; border-radius: 4px; width: 200px; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🔧 Frontend Login Test</h1>
+        
+        <div class="test-box">
+            <h3>Test Login from Frontend</h3>
+            <input type="email" id="email" placeholder="Email" value="admin@cod-crm.com">
+            <input type="password" id="password" placeholder="Password" value="Admin123!">
+            <br>
+            <button onclick="testLogin()">Test Login</button>
+            <div id="result" class="result"></div>
+        </div>
+        
+        <div class="test-box">
+            <h3>Test Different Backend URLs</h3>
+            <button onclick="testURL('http://localhost:8000')">Test localhost:8000</button>
+            <button onclick="testURL('http://127.0.0.1:8000')">Test 127.0.0.1:8000</button>
+            <button onclick="testURL('http://0.0.0.0:8000')">Test 0.0.0.0:8000</button>
+            <div id="urlResult" class="result"></div>
+        </div>
+        
+        <div class="test-box">
+            <h3>Check CORS</h3>
+            <button onclick="testCORS()">Test CORS from localhost:8080</button>
+            <div id="corsResult" class="result"></div>
+        </div>
+    </div>
+
+    <script>
+        async function testLogin() {
+            const result = document.getElementById('result');
+            const email = document.getElementById('email').value;
+            const password = document.getElementById('password').value;
+            
+            result.textContent = 'Testing login...';
+            
+            try {
+                const response = await fetch('http://localhost:8000/api/v1/auth/login', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({ email, password })
+                });
+                
+                const data = await response.json();
+                
+                if (response.ok) {
+                    result.textContent = `✅ LOGIN SUCCESS!\n\nToken: ${data.access_token.substring(0, 50)}...\nUser: ${data.full_name} (${data.email})\nUser ID: ${data.user_id}`;
+                    result.className = 'result success';
+                } else {
+                    result.textContent = `❌ LOGIN FAILED!\n\nStatus: ${response.status}\nError: ${JSON.stringify(data, null, 2)}`;
+                    result.className = 'result error';
+                }
+            } catch (error) {
+                result.textContent = `❌ NETWORK ERROR!\n\nError: ${error.message}\n\nThis usually means:\n1. Backend server is not running\n2. Wrong backend URL\n3. CORS issue`;
+                result.className = 'result error';
+            }
+        }
+        
+        async function testURL(baseURL) {
+            const result = document.getElementById('urlResult');
+            result.textContent = `Testing ${baseURL}...`;
+            
+            try {
+                const response = await fetch(`${baseURL}/`);
+                const data = await response.json();
+                
+                if (response.ok) {
+                    result.textContent = `✅ ${baseURL} is working!\n\nResponse: ${JSON.stringify(data, null, 2)}`;
+                    result.className = 'result success';
+                } else {
+                    result.textContent = `❌ ${baseURL} failed: ${response.status}`;
+                    result.className = 'result error';
+                }
+            } catch (error) {
+                result.textContent = `❌ ${baseURL} error: ${error.message}`;
+                result.className = 'result error';
+            }
+        }
+        
+        async function testCORS() {
+            const result = document.getElementById('corsResult');
+            result.textContent = 'Testing CORS...';
+            
+            try {
+                const response = await fetch('http://localhost:8000/api/v1/leads', {
+                    method: 'OPTIONS',
+                    headers: {
+                        'Origin': 'http://localhost:8080',
+                        'Access-Control-Request-Method': 'GET',
+                        'Access-Control-Request-Headers': 'Authorization, Content-Type'
+                    }
+                });
+                
+                const corsHeaders = {
+                    'Access-Control-Allow-Origin': response.headers.get('Access-Control-Allow-Origin'),
+                    'Access-Control-Allow-Methods': response.headers.get('Access-Control-Allow-Methods'),
+                    'Access-Control-Allow-Headers': response.headers.get('Access-Control-Allow-Headers'),
+                    'Access-Control-Allow-Credentials': response.headers.get('Access-Control-Allow-Credentials')
+                };
+                
+                result.textContent = `✅ CORS Test Complete!\n\nStatus: ${response.status}\nHeaders: ${JSON.stringify(corsHeaders, null, 2)}`;
+                result.className = 'result success';
+            } catch (error) {
+                result.textContent = `❌ CORS Test Failed!\n\nError: ${error.message}`;
+                result.className = 'result error';
+            }
+        }
+        
+        // Auto-run tests on load
+        window.onload = function() {
+            testURL('http://localhost:8000');
+        };
+    </script>
+</body>
+</html>

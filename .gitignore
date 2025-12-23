@@ -2,26 +2,41 @@
 __pycache__/
 *.py[cod]
 *$py.class
-*.so
-.Python
+.venv/
 venv/
 env/
-ENV/
-.env
+*.egg-info/
+.eggs/
+dist/
+build/
 
 # Node
 node_modules/
 .next/
 out/
-build/
+.cache/
+
+# Environment
+.env
 .env.local
+.env.*.local
+*.env
+
+# Database
+*.db
+*.sqlite
+*.sqlite3
 
 # IDE
 .vscode/
-.cursor/
 .idea/
 *.swp
+*.swo
+
+# OS
 .DS_Store
+Thumbs.db
 
 # Logs
 *.log
+npm-debug.log*

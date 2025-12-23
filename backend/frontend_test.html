@@ -1,0 +1,184 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Frontend Connection Test</title>
+    <style>
+        body { font-family: Arial, sans-serif; margin: 40px; background: #1a1a1a; color: white; }
+        .container { max-width: 800px; margin: 0 auto; }
+        .test-box { background: #2a2a2a; padding: 20px; margin: 20px 0; border-radius: 8px; }
+        button { background: #007bff; color: white; border: none; padding: 10px 20px; border-radius: 4px; cursor: pointer; margin: 5px; }
+        button:hover { background: #0056b3; }
+        .result { background: #333; padding: 10px; margin: 10px 0; border-radius: 4px; white-space: pre-wrap; }
+        .success { border-left: 4px solid #28a745; }
+        .error { border-left: 4px solid #dc3545; }
+        .code { background: #000; padding: 10px; border-radius: 4px; font-family: monospace; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🔧 Frontend Connection Test</h1>
+        <p>This page tests the connection from your frontend (localhost:8080) to the backend (localhost:8000)</p>
+        
+        <div class="test-box">
+            <h3>1. Test Backend Connection</h3>
+            <button onclick="testBackend()">Test Backend</button>
+            <div id="backendResult" class="result"></div>
+        </div>
+        
+        <div class="test-box">
+            <h3>2. Test Debug Endpoints</h3>
+            <button onclick="testDebug()">Test Debug API</button>
+            <div id="debugResult" class="result"></div>
+        </div>
+        
+        <div class="test-box">
+            <h3>3. Test Login Endpoint</h3>
+            <button onclick="testLogin()">Test Login</button>
+            <div id="loginResult" class="result"></div>
+        </div>
+        
+        <div class="test-box">
+            <h3>4. Test CORS</h3>
+            <button onclick="testCORS()">Test CORS</button>
+            <div id="corsResult" class="result"></div>
+        </div>
+        
+        <div class="test-box">
+            <h3>5. Working Login Code</h3>
+            <p>Copy this code to your frontend:</p>
+            <div class="code" id="workingCode">
+// Working login function for your frontend
+async function login(email, password) {
+    try {
+        const response = await fetch('http://localhost:8000/api/v1/auth/login', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({ email, password })
+        });
+        
+        if (response.ok) {
+            const data = await response.json();
+            console.log('Login successful:', data);
+            return data;
+        } else {
+            const error = await response.json();
+            throw new Error(error.detail || 'Login failed');
+        }
+    } catch (error) {
+        console.error('Login error:', error);
+        throw error;
+    }
+}
+
+// Usage:
+// login('admin@cod-crm.com', 'Admin123!')
+//   .then(data => console.log('Success:', data))
+//   .catch(error => console.error('Error:', error));
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const API_BASE = 'http://localhost:8000';
+        
+        async function testBackend() {
+            const result = document.getElementById('backendResult');
+            result.textContent = 'Testing backend connection...';
+            
+            try {
+                const response = await fetch(`${API_BASE}/`);
+                const data = await response.json();
+                result.textContent = `✅ Backend Connected!\n\nResponse: ${JSON.stringify(data, null, 2)}`;
+                result.className = 'result success';
+            } catch (error) {
+                result.textContent = `❌ Backend Connection Failed!\n\nError: ${error.message}`;
+                result.className = 'result error';
+            }
+        }
+        
+        async function testDebug() {
+            const result = document.getElementById('debugResult');
+            result.textContent = 'Testing debug endpoints...';
+            
+            try {
+                const response = await fetch(`${API_BASE}/api/v1/debug/`);
+                const data = await response.json();
+                result.textContent = `✅ Debug API Working!\n\nResponse: ${JSON.stringify(data, null, 2)}`;
+                result.className = 'result success';
+            } catch (error) {
+                result.textContent = `❌ Debug API Failed!\n\nError: ${error.message}`;
+                result.className = 'result error';
+            }
+        }
+        
+        async function testLogin() {
+            const result = document.getElementById('loginResult');
+            result.textContent = 'Testing login endpoint...';
+            
+            try {
+                const response = await fetch(`${API_BASE}/api/v1/auth/login`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({
+                        email: 'admin@cod-crm.com',
+                        password: 'Admin123!'
+                    })
+                });
+                
+                const data = await response.json();
+                
+                if (response.ok) {
+                    result.textContent = `✅ Login Test Successful!\n\nToken: ${data.access_token.substring(0, 50)}...\nUser: ${data.full_name} (${data.email})`;
+                    result.className = 'result success';
+                } else {
+                    result.textContent = `❌ Login Test Failed!\n\nStatus: ${response.status}\nError: ${JSON.stringify(data, null, 2)}`;
+                    result.className = 'result error';
+                }
+            } catch (error) {
+                result.textContent = `❌ Login Test Error!\n\nError: ${error.message}`;
+                result.className = 'result error';
+            }
+        }
+        
+        async function testCORS() {
+            const result = document.getElementById('corsResult');
+            result.textContent = 'Testing CORS...';
+            
+            try {
+                const response = await fetch(`${API_BASE}/api/v1/leads`, {
+                    method: 'OPTIONS',
+                    headers: {
+                        'Origin': 'http://localhost:8080',
+                        'Access-Control-Request-Method': 'GET',
+                        'Access-Control-Request-Headers': 'Authorization, Content-Type'
+                    }
+                });
+                
+                const corsHeaders = {
+                    'Access-Control-Allow-Origin': response.headers.get('Access-Control-Allow-Origin'),
+                    'Access-Control-Allow-Methods': response.headers.get('Access-Control-Allow-Methods'),
+                    'Access-Control-Allow-Headers': response.headers.get('Access-Control-Allow-Headers'),
+                    'Access-Control-Allow-Credentials': response.headers.get('Access-Control-Allow-Credentials')
+                };
+                
+                result.textContent = `✅ CORS Test Complete!\n\nStatus: ${response.status}\nHeaders: ${JSON.stringify(corsHeaders, null, 2)}`;
+                result.className = 'result success';
+            } catch (error) {
+                result.textContent = `❌ CORS Test Failed!\n\nError: ${error.message}`;
+                result.className = 'result error';
+            }
+        }
+        
+        // Auto-run tests on load
+        window.addEventListener('load', function() {
+            testBackend();
+            setTimeout(testDebug, 1000);
+            setTimeout(testCORS, 2000);
+        });
+    </script>
+</body>
+</html>

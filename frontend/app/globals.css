@@ -1,26 +1,123 @@
 @import "tailwindcss";
 
-:root {
-  --background: #ffffff;
-  --foreground: #171717;
+@theme {
+  /* Premium Minimalist Palette (Rich Slate + Trustworthy Blue) */
+  --color-slate-950: #020617;
+  /* Deep Background */
+  --color-slate-900: #0f172a;
+  /* Card/Surface */
+  --color-slate-800: #1e293b;
+  /* Borders */
+  --color-slate-700: #334155;
+  /* Secondary Borders/Muted */
+  --color-slate-400: #94a3b8;
+  /* Muted Text */
+  --color-slate-100: #f1f5f9;
+  /* Primary Text */
+
+  --color-primary-blue: #2563eb;
+  /* Trustworthy Blue */
+  --color-primary-light: #60a5fa;
+  --color-success: #10b981;
+  /* Emerald 500 */
+  --color-warning: #f59e0b;
+  /* Amber 500 */
+  --color-danger: #ef4444;
+  /* Red 500 */
+
+  /* Semantic Mapping */
+  --color-background: var(--color-slate-950);
+  --color-foreground: var(--color-slate-100);
+
+  --color-card: var(--color-slate-900);
+  --color-card-foreground: var(--color-slate-100);
+
+  --color-popover: var(--color-slate-900);
+  --color-popover-foreground: var(--color-slate-100);
+
+  --color-primary: var(--color-primary-blue);
+  --color-primary-foreground: #ffffff;
+
+  --color-secondary: var(--color-slate-800);
+  --color-secondary-foreground: var(--color-slate-100);
+
+  --color-muted: var(--color-slate-800);
+  --color-muted-foreground: var(--color-slate-400);
+
+  --color-accent: var(--color-slate-800);
+  --color-accent-foreground: var(--color-slate-100);
+
+  --color-destructive: var(--color-danger);
+  --color-destructive-foreground: #ffffff;
+
+  --color-border: var(--color-slate-800);
+  --color-input: var(--color-slate-800);
+  --color-ring: var(--color-primary-blue);
+
+  --radius: 0.5rem;
+
+  /* Sidebar specific */
+  --color-sidebar: var(--color-slate-900);
+  --color-sidebar-border: var(--color-slate-800);
+
+  /* Specific Chart Colors for Dashboard */
+  --color-accent-fg: var(--color-primary-blue);
+  --color-accent-emphasis: var(--color-primary-blue);
+  --color-success-fg: var(--color-success);
+  --color-attention-fg: var(--color-warning);
+  --color-danger-fg: var(--color-danger);
+
+  /* Font Family Upgrade */
+  --font-sans: "Inter", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
 }
 
-@theme inline {
-  --color-background: var(--background);
-  --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
-}
+/* Base styles */
+@layer base {
+  * {
+    @apply border-border;
+  }
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
+  body {
+    @apply bg-background text-foreground;
+    font-family: var(--font-sans);
+    font-feature-settings: "cv11", "ss01";
+    /* Cleaner numbers & characters */
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
   }
 }
 
-body {
-  background: var(--background);
-  color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+/* Utilities for compatibility */
+@utility bg-slate-800 {
+  @apply bg-card;
+}
+
+@utility bg-slate-900 {
+  @apply bg-background;
+}
+
+@utility border-slate-700 {
+  @apply border-border;
+}
+
+@utility text-slate-400 {
+  @apply text-muted-foreground;
+}
+
+@utility text-slate-300 {
+  @apply text-foreground;
+}
+
+/* Layout Utilities */
+@utility w-sidebar {
+  width: 250px;
+}
+
+@utility ml-sidebar {
+  margin-left: 250px;
+}
+
+/* Glassmorphism Utilities */
+@utility glass-card {
+  @apply bg-card/80 backdrop-blur-md border border-border;
 }

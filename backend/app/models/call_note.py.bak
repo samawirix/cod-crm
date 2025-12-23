@@ -1,0 +1,36 @@
+from sqlalchemy import Column, Integer, String, DateTime, ForeignKey, Text, Float
+from sqlalchemy.orm import relationship
+from datetime import datetime
+from app.core.database import Base
+
+class CallNote(Base):
+    __tablename__ = "call_notes"
+    
+    # Primary Key
+    id = Column(Integer, primary_key=True, index=True)
+    
+    # Foreign Keys
+    lead_id = Column(Integer, ForeignKey("leads.id", ondelete="CASCADE"), nullable=False, index=True)
+    user_id = Column(Integer, ForeignKey("users.id"), nullable=False)
+    
+    # Call Details
+    call_outcome = Column(String(50), nullable=False)  # ANSWERED, NO_ANSWER, VOICEMAIL, WRONG_NUMBER, PHONE_OFF
+    interest_level = Column(String(50), nullable=True)  # HIGH, MEDIUM, LOW, NOT_INTERESTED
+    next_status = Column(String(50), nullable=True)  # QUALIFIED, CALLBACK, NOT_INTERESTED, WON, LOST
+    
+    # Call Notes
+    notes = Column(Text, nullable=True)
+    call_duration = Column(Float, nullable=True)  # Duration in minutes
+    
+    # Callback scheduling
+    callback_scheduled = Column(DateTime, nullable=True)
+    
+    # Metadata
+    created_at = Column(DateTime, default=datetime.utcnow, nullable=False, index=True)
+    
+    # Relationships
+    lead = relationship("Lead", back_populates="call_notes")
+    agent = relationship("User", back_populates="call_notes")
+    
+    def __repr__(self):
+        return f"<CallNote(id={self.id}, lead_id={self.lead_id}, outcome='{self.call_outcome}')>"

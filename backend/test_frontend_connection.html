@@ -1,0 +1,162 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>CRM Backend Test</title>
+    <style>
+        body { font-family: Arial, sans-serif; margin: 40px; background: #1a1a1a; color: white; }
+        .container { max-width: 600px; margin: 0 auto; }
+        .test-box { background: #2a2a2a; padding: 20px; margin: 20px 0; border-radius: 8px; }
+        button { background: #007bff; color: white; border: none; padding: 10px 20px; border-radius: 4px; cursor: pointer; margin: 5px; }
+        button:hover { background: #0056b3; }
+        .result { background: #333; padding: 10px; margin: 10px 0; border-radius: 4px; white-space: pre-wrap; }
+        .success { border-left: 4px solid #28a745; }
+        .error { border-left: 4px solid #dc3545; }
+        input { padding: 8px; margin: 5px; border: 1px solid #555; background: #333; color: white; border-radius: 4px; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🔧 CRM Backend Connection Test</h1>
+        
+        <div class="test-box">
+            <h3>1. Test Backend Connection</h3>
+            <button onclick="testConnection()">Test Backend</button>
+            <div id="connectionResult" class="result"></div>
+        </div>
+        
+        <div class="test-box">
+            <h3>2. Test Login</h3>
+            <input type="email" id="email" placeholder="Email" value="admin@cod-crm.com">
+            <input type="password" id="password" placeholder="Password" value="Admin123!">
+            <br>
+            <button onclick="testLogin()">Test Login</button>
+            <div id="loginResult" class="result"></div>
+        </div>
+        
+        <div class="test-box">
+            <h3>3. Test with Agent Credentials</h3>
+            <button onclick="testAgentLogin()">Test Agent Login</button>
+            <div id="agentResult" class="result"></div>
+        </div>
+        
+        <div class="test-box">
+            <h3>4. Test CORS</h3>
+            <button onclick="testCORS()">Test CORS</button>
+            <div id="corsResult" class="result"></div>
+        </div>
+    </div>
+
+    <script>
+        const API_BASE = 'http://localhost:8000';
+        
+        async function testConnection() {
+            const result = document.getElementById('connectionResult');
+            result.textContent = 'Testing connection...';
+            
+            try {
+                const response = await fetch(`${API_BASE}/`);
+                const data = await response.json();
+                result.textContent = `✅ Backend Connected!\n\nResponse: ${JSON.stringify(data, null, 2)}`;
+                result.className = 'result success';
+            } catch (error) {
+                result.textContent = `❌ Connection Failed!\n\nError: ${error.message}`;
+                result.className = 'result error';
+            }
+        }
+        
+        async function testLogin() {
+            const result = document.getElementById('loginResult');
+            const email = document.getElementById('email').value;
+            const password = document.getElementById('password').value;
+            
+            result.textContent = 'Testing login...';
+            
+            try {
+                const response = await fetch(`${API_BASE}/api/v1/auth/login`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({ email, password })
+                });
+                
+                const data = await response.json();
+                
+                if (response.ok) {
+                    result.textContent = `✅ Login Successful!\n\nToken: ${data.access_token.substring(0, 50)}...\nUser: ${data.full_name} (${data.email})`;
+                    result.className = 'result success';
+                } else {
+                    result.textContent = `❌ Login Failed!\n\nError: ${JSON.stringify(data, null, 2)}`;
+                    result.className = 'result error';
+                }
+            } catch (error) {
+                result.textContent = `❌ Login Error!\n\nError: ${error.message}`;
+                result.className = 'result error';
+            }
+        }
+        
+        async function testAgentLogin() {
+            const result = document.getElementById('agentResult');
+            result.textContent = 'Testing agent login...';
+            
+            try {
+                const response = await fetch(`${API_BASE}/api/v1/auth/login`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({ 
+                        email: 'agent@crm.com', 
+                        password: 'agent123' 
+                    })
+                });
+                
+                const data = await response.json();
+                
+                if (response.ok) {
+                    result.textContent = `✅ Agent Login Successful!\n\nToken: ${data.access_token.substring(0, 50)}...\nUser: ${data.full_name} (${data.email})`;
+                    result.className = 'result success';
+                } else {
+                    result.textContent = `❌ Agent Login Failed!\n\nError: ${JSON.stringify(data, null, 2)}`;
+                    result.className = 'result error';
+                }
+            } catch (error) {
+                result.textContent = `❌ Agent Login Error!\n\nError: ${error.message}`;
+                result.className = 'result error';
+            }
+        }
+        
+        async function testCORS() {
+            const result = document.getElementById('corsResult');
+            result.textContent = 'Testing CORS...';
+            
+            try {
+                const response = await fetch(`${API_BASE}/api/v1/auth/login`, {
+                    method: 'OPTIONS',
+                    headers: {
+                        'Origin': 'http://localhost:8080',
+                        'Access-Control-Request-Method': 'POST',
+                        'Access-Control-Request-Headers': 'Content-Type'
+                    }
+                });
+                
+                const corsHeaders = {
+                    'Access-Control-Allow-Origin': response.headers.get('Access-Control-Allow-Origin'),
+                    'Access-Control-Allow-Methods': response.headers.get('Access-Control-Allow-Methods'),
+                    'Access-Control-Allow-Headers': response.headers.get('Access-Control-Allow-Headers'),
+                    'Access-Control-Allow-Credentials': response.headers.get('Access-Control-Allow-Credentials')
+                };
+                
+                result.textContent = `✅ CORS Test Complete!\n\nStatus: ${response.status}\nHeaders: ${JSON.stringify(corsHeaders, null, 2)}`;
+                result.className = 'result success';
+            } catch (error) {
+                result.textContent = `❌ CORS Test Failed!\n\nError: ${error.message}`;
+                result.className = 'result error';
+            }
+        }
+        
+        // Auto-run connection test on load
+        window.onload = testConnection;
+    </script>
+</body>
+</html>
