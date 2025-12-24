@@ -122,6 +122,7 @@ class ProductResponse(BaseModel):
     selling_price: float
     compare_at_price: Optional[float]
     stock_quantity: int
+    variant_count: int = 0  # Number of active variants
     low_stock_threshold: int
     track_inventory: bool
     allow_backorder: bool

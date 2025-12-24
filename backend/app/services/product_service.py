@@ -1,4 +1,4 @@
-from sqlalchemy.orm import Session
+from sqlalchemy.orm import Session, joinedload
 from sqlalchemy import func, or_
 from typing import Optional
 from datetime import datetime
@@ -73,7 +73,8 @@ class ProductService:
     ):
         """Get paginated list of products with filters"""
         
-        query = self.db.query(Product)
+        # Use joinedload to eagerly load product_variants
+        query = self.db.query(Product).options(joinedload(Product.product_variants))
         
         # Apply filters
         if search:
@@ -116,12 +117,20 @@ class ProductService:
         offset = (page - 1) * page_size
         products = query.offset(offset).limit(page_size).all()
         
-        # Add category name to each product
+        # Add category name and calculate total stock for each product
         for product in products:
             if product.category:
                 product.category_name = product.category.name
             else:
                 product.category_name = None
+            
+            # Calculate total stock from variants if product has variants
+            if product.product_variants and len(product.product_variants) > 0:
+                total_variant_stock = sum(v.stock_quantity for v in product.product_variants if v.is_active)
+                product.stock_quantity = total_variant_stock
+                product.variant_count = len([v for v in product.product_variants if v.is_active])
+            else:
+                product.variant_count = 0
         
         total_pages = (total + page_size - 1) // page_size
         

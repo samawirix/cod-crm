@@ -462,9 +462,16 @@ export default function ProductsPage() {
                                                 </span>
                                             </td>
                                             <td className="p-4">
-                                                <span className={`font-semibold ${product.is_out_of_stock ? 'text-red-400' : product.is_low_stock ? 'text-orange-400' : 'text-white'}`}>
-                                                    {product.stock_quantity}
-                                                </span>
+                                                <div className="flex items-center gap-2">
+                                                    <span className={`font-semibold ${product.is_out_of_stock ? 'text-red-400' : product.is_low_stock ? 'text-orange-400' : 'text-white'}`}>
+                                                        {product.stock_quantity}
+                                                    </span>
+                                                    {product.variant_count > 0 && (
+                                                        <span className="text-xs text-purple-400 bg-purple-400/10 px-2 py-0.5 rounded">
+                                                            {product.variant_count} variant{product.variant_count !== 1 ? 's' : ''}
+                                                        </span>
+                                                    )}
+                                                </div>
                                             </td>
                                             <td className="p-4">
                                                 {getStockBadge(product)}
