@@ -5,10 +5,12 @@ import { useRouter } from 'next/navigation';
 import {
     ArrowLeft, Save, X, Plus, Package, DollarSign, Tag, Image as ImageIcon, Trash2, Upload, Check, TrendingUp
 } from 'lucide-react';
+import { VariantOptionEditor, VariantList } from '@/components/products';
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000';
 
-interface VariationOption {
+interface VariantOption {
+    id: string;
     type: string;
     values: string[];
 }
@@ -44,10 +46,8 @@ export default function NewProductPage() {
     const [imagePreviewError, setImagePreviewError] = useState(false);
     const fileInputRef = useRef<HTMLInputElement>(null);
 
-    // Variations
-    const [variationOptions, setVariationOptions] = useState<VariationOption[]>([]);
-    const [currentType, setCurrentType] = useState('');
-    const [currentValues, setCurrentValues] = useState('');
+    // Variations - using new component state
+    const [variantOptions, setVariantOptions] = useState<VariantOption[]>([]);
     const [generatedVariants, setGeneratedVariants] = useState<GeneratedVariant[]>([]);
 
     const [loading, setLoading] = useState(false);
@@ -94,36 +94,13 @@ export default function NewProductPage() {
         setFormProgress(Math.min(progress, 100));
     }, [productName, sku, sellingPrice, costPrice, imageUrl]);
 
-    // Add variation option
-    const handleAddVariation = () => {
-        if (!currentType.trim() || !currentValues.trim()) {
-            alert('Please enter variation type and values');
-            return;
-        }
+    // Generate variants when options change
+    useEffect(() => {
+        generateVariantsFromOptions(variantOptions);
+    }, [variantOptions, sku]);
 
-        const values = currentValues.split(',').map(v => v.trim()).filter(v => v.length > 0);
-        if (values.length === 0) {
-            alert('Please enter at least one value');
-            return;
-        }
-
-        const newOptions = [...variationOptions, { type: currentType.trim(), values }];
-        setVariationOptions(newOptions);
-        setCurrentType('');
-        setCurrentValues('');
-        generateVariants(newOptions);
-    };
-
-    // Remove variation option
-    const removeVariationOption = (index: number) => {
-        const updated = variationOptions.filter((_, i) => i !== index);
-        setVariationOptions(updated);
-        generateVariants(updated);
-    };
-
-    // Generate variants (Cartesian product)
-    const generateVariants = (options: VariationOption[]) => {
-        if (options.length === 0) {
+    const generateVariantsFromOptions = (options: VariantOption[]) => {
+        if (options.length === 0 || options.some(o => o.values.length === 0)) {
             setGeneratedVariants([]);
             return;
         }
@@ -135,21 +112,20 @@ export default function NewProductPage() {
             );
         };
 
-        const valueArrays = options.map(opt => opt.values);
+        const valueArrays = options.map(o => o.values);
         const combinations = cartesian(valueArrays);
 
-        const variants: GeneratedVariant[] = combinations.map((combo) => {
+        const variants: GeneratedVariant[] = combinations.map(combo => {
             const attributes: Record<string, string> = {};
             options.forEach((opt, i) => {
                 attributes[opt.type.toLowerCase()] = combo[i];
             });
 
             const skuSuffix = combo.map(v => v.toUpperCase().replace(/\s+/g, '-')).join('-');
-            const generatedSku = `${sku || 'PROD'}-${skuSuffix}`;
 
             return {
                 variant_name: combo.join(' / '),
-                sku: generatedSku,
+                sku: `${sku || 'PROD'}-${skuSuffix}`,
                 color: attributes['color'],
                 size: attributes['size'],
                 capacity: attributes['capacity'],
@@ -160,6 +136,8 @@ export default function NewProductPage() {
 
         setGeneratedVariants(variants);
     };
+
+
 
     // Update variant
     const updateVariant = (index: number, field: string, value: any) => {
@@ -379,10 +357,7 @@ export default function NewProductPage() {
                                             <input
                                                 type="text"
                                                 value={sku}
-                                                onChange={(e) => {
-                                                    setSku(e.target.value);
-                                                    if (variationOptions.length > 0) generateVariants(variationOptions);
-                                                }}
+                                                onChange={(e) => setSku(e.target.value)}
                                                 className="w-full bg-gray-900 border border-gray-600 rounded-lg px-4 py-3 text-white focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                                                 placeholder="e.g., PROD-001"
                                                 required
@@ -499,120 +474,33 @@ export default function NewProductPage() {
                                 )}
                             </div>
 
-                            {/* Variations */}
-                            <div className="bg-gray-800 rounded-lg p-4 sm:p-6 border border-gray-700">
-                                <div className="flex items-center gap-2 mb-4">
+                            {/* Variations - Shopify Style */}
+                            <div className="bg-gray-800 rounded-xl p-4 sm:p-6 border border-gray-700">
+                                <div className="flex items-center gap-2 mb-6">
                                     <Tag className="w-5 h-5 text-purple-400" />
-                                    <h2 className="text-lg font-semibold text-white">Product Variations</h2>
+                                    <h2 className="text-lg font-semibold text-white">Product Options</h2>
                                     <span className="text-sm text-gray-400">(Optional)</span>
                                 </div>
 
-                                <p className="text-sm text-gray-400 mb-4">
-                                    Add variation types (Color, Size, etc.) and their values. All combinations will be auto-generated.
+                                <p className="text-sm text-gray-400 mb-6">
+                                    Add options like Color or Size to create product variants. Each combination becomes a separate variant.
                                 </p>
 
-                                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-4">
-                                    <div>
-                                        <label className="block text-sm font-medium text-gray-300 mb-2">Variation Type</label>
-                                        <input
-                                            type="text"
-                                            value={currentType}
-                                            onChange={(e) => setCurrentType(e.target.value)}
-                                            className="w-full bg-gray-900 border border-gray-600 rounded-lg px-4 py-3 text-white"
-                                            placeholder="e.g., Color, Size, Material"
-                                        />
-                                    </div>
-                                    <div>
-                                        <label className="block text-sm font-medium text-gray-300 mb-2">Values (comma-separated)</label>
-                                        <input
-                                            type="text"
-                                            value={currentValues}
-                                            onChange={(e) => setCurrentValues(e.target.value)}
-                                            className="w-full bg-gray-900 border border-gray-600 rounded-lg px-4 py-3 text-white"
-                                            placeholder="e.g., Black, White, Red"
-                                        />
-                                    </div>
-                                </div>
+                                {/* Option Editor */}
+                                <VariantOptionEditor
+                                    options={variantOptions}
+                                    onChange={setVariantOptions}
+                                />
 
-                                <button
-                                    type="button"
-                                    onClick={handleAddVariation}
-                                    className="px-4 py-2 bg-purple-600 hover:bg-purple-700 text-white rounded-lg transition-colors flex items-center gap-2"
-                                >
-                                    <Plus className="w-4 h-4" />
-                                    Add Variation Type
-                                </button>
-
-                                {variationOptions.length > 0 && (
-                                    <div className="mt-4 space-y-2">
-                                        <p className="text-sm font-medium text-gray-300">Variation Types ({variationOptions.length}):</p>
-                                        {variationOptions.map((option, index) => (
-                                            <div key={index} className="flex items-center justify-between p-3 bg-gray-900 rounded-lg border border-gray-600">
-                                                <div className="flex-1 min-w-0">
-                                                    <span className="text-white font-medium">{option.type}:</span>
-                                                    <span className="text-gray-400 ml-2">{option.values.join(', ')}</span>
-                                                </div>
-                                                <button type="button" onClick={() => removeVariationOption(index)} className="p-1 hover:bg-gray-800 rounded transition-colors ml-2">
-                                                    <X className="w-4 h-4 text-red-400" />
-                                                </button>
-                                            </div>
-                                        ))}
-                                    </div>
-                                )}
-
+                                {/* Generated Variants */}
                                 {generatedVariants.length > 0 && (
-                                    <div className="mt-4 p-4 bg-blue-500/10 border border-blue-500/30 rounded-lg">
-                                        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 mb-4">
-                                            <p className="text-sm font-medium text-blue-400">Generated {generatedVariants.length} Variant(s)</p>
-                                            <span className="text-xs text-gray-400">
-                                                Total Stock: {generatedVariants.reduce((sum, v) => sum + v.stock_quantity, 0)}
-                                            </span>
-                                        </div>
-
-                                        <div className="space-y-2 max-h-60 overflow-y-auto">
-                                            {generatedVariants.map((variant, index) => (
-                                                <div key={index} className="flex flex-col sm:flex-row sm:items-center gap-3 p-3 bg-gray-900 rounded-lg border border-gray-700">
-                                                    <div className="flex items-center gap-2 flex-1 min-w-0">
-                                                        {variant.color && (
-                                                            <div
-                                                                className="w-6 h-6 rounded-full border-2 border-gray-600 flex-shrink-0"
-                                                                style={{ backgroundColor: getColorCode(variant.color) }}
-                                                                title={variant.color}
-                                                            />
-                                                        )}
-                                                        <div className="min-w-0">
-                                                            <p className="text-sm font-medium text-white truncate">{variant.variant_name}</p>
-                                                            <p className="text-xs text-gray-500 truncate">{variant.sku}</p>
-                                                        </div>
-                                                    </div>
-
-                                                    <div className="flex items-center gap-2">
-                                                        <div className="w-24">
-                                                            <input
-                                                                type="number"
-                                                                value={variant.stock_quantity}
-                                                                onChange={(e) => updateVariant(index, 'stock_quantity', e.target.value)}
-                                                                className="w-full bg-gray-800 border border-gray-600 rounded px-3 py-2 text-sm text-white"
-                                                                placeholder="Stock"
-                                                            />
-                                                        </div>
-                                                        <div className="w-24">
-                                                            <input
-                                                                type="number"
-                                                                step="0.01"
-                                                                value={variant.price_override || ''}
-                                                                onChange={(e) => updateVariant(index, 'price_override', e.target.value)}
-                                                                className="w-full bg-gray-800 border border-gray-600 rounded px-3 py-2 text-sm text-white"
-                                                                placeholder="Price"
-                                                            />
-                                                        </div>
-                                                        <button type="button" onClick={() => deleteVariant(index)} className="p-2 hover:bg-gray-800 rounded transition-colors">
-                                                            <Trash2 className="w-4 h-4 text-red-400" />
-                                                        </button>
-                                                    </div>
-                                                </div>
-                                            ))}
-                                        </div>
+                                    <div className="mt-6 pt-6 border-t border-gray-700">
+                                        <VariantList
+                                            variants={generatedVariants}
+                                            basePrice={parseFloat(sellingPrice) || 0}
+                                            baseSku={sku}
+                                            onChange={setGeneratedVariants}
+                                        />
                                     </div>
                                 )}
                             </div>
