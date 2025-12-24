@@ -3,7 +3,7 @@
 import { useState, useEffect, useRef } from 'react';
 import { useRouter, useParams } from 'next/navigation';
 import {
-    ArrowLeft, Save, X, Plus, Package, DollarSign, Tag, Image as ImageIcon, Trash2, Upload
+    ArrowLeft, Save, X, Plus, Package, DollarSign, Tag, Image as ImageIcon, Trash2, Upload, Check, TrendingUp
 } from 'lucide-react';
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000';
@@ -86,6 +86,8 @@ export default function EditProductPage() {
     const [loading, setLoading] = useState(true);
     const [saving, setSaving] = useState(false);
     const [error, setError] = useState('');
+    const [showSuccess, setShowSuccess] = useState(false);
+    const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false);
 
     // Load product data
     useEffect(() => {
@@ -219,9 +221,68 @@ export default function EditProductPage() {
         const updated = [...newGeneratedVariants];
         if (field === 'stock_quantity') {
             updated[index].stock_quantity = parseInt(value) || 0;
+        } else if (field === 'price_override') {
+            updated[index].price_override = value ? parseFloat(value) : undefined;
         }
         setNewGeneratedVariants(updated);
     };
+
+    // Remove a single new variant
+    const removeNewVariant = (index: number) => {
+        setNewGeneratedVariants(newGeneratedVariants.filter((_, i) => i !== index));
+    };
+
+    // Get color code for color swatch
+    const getColorCode = (colorName: string): string => {
+        const colors: Record<string, string> = {
+            'black': '#000000', 'white': '#FFFFFF', 'red': '#EF4444',
+            'blue': '#3B82F6', 'green': '#22C55E', 'yellow': '#EAB308',
+            'orange': '#F97316', 'purple': '#A855F7', 'pink': '#EC4899',
+            'gray': '#6B7280', 'gold': '#F59E0B', 'silver': '#9CA3AF',
+            'navy': '#1E3A8A', 'brown': '#92400E',
+        };
+        return colors[colorName?.toLowerCase()] || '#6B7280';
+    };
+
+    // Track unsaved changes
+    useEffect(() => {
+        if (product) {
+            const hasChanges =
+                productName !== product.name ||
+                sku !== product.sku ||
+                costPrice !== String(product.cost_price || '') ||
+                sellingPrice !== String(product.selling_price || '') ||
+                newGeneratedVariants.length > 0;
+            setHasUnsavedChanges(hasChanges);
+        }
+    }, [productName, sku, costPrice, sellingPrice, newGeneratedVariants, product]);
+
+    // Keyboard shortcuts
+    useEffect(() => {
+        const handleKeyDown = (e: KeyboardEvent) => {
+            if ((e.ctrlKey || e.metaKey) && e.key === 's') {
+                e.preventDefault();
+                handleSave();
+            }
+            if (e.key === 'Escape') {
+                router.back();
+            }
+        };
+        window.addEventListener('keydown', handleKeyDown);
+        return () => window.removeEventListener('keydown', handleKeyDown);
+    }, []);
+
+    // Warn before leaving with unsaved changes
+    useEffect(() => {
+        const handleBeforeUnload = (e: BeforeUnloadEvent) => {
+            if (hasUnsavedChanges) {
+                e.preventDefault();
+                e.returnValue = '';
+            }
+        };
+        window.addEventListener('beforeunload', handleBeforeUnload);
+        return () => window.removeEventListener('beforeunload', handleBeforeUnload);
+    }, [hasUnsavedChanges]);
 
     // Image handling
     const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -389,445 +450,497 @@ export default function EditProductPage() {
                                 <ArrowLeft className="w-5 h-5 text-gray-400" />
                             </button>
                             <div>
-                                <h1 className="text-xl sm:text-2xl font-bold text-white">Edit Product</h1>
+                                <div className="flex items-center gap-2">
+                                    <h1 className="text-xl sm:text-2xl font-bold text-white">Edit Product</h1>
+                                    {hasUnsavedChanges && (
+                                        <span className="flex items-center gap-1 text-xs text-yellow-400">
+                                            <div className="w-2 h-2 bg-yellow-400 rounded-full animate-pulse" />
+                                            Unsaved
+                                        </span>
+                                    )}
+                                </div>
                                 <p className="text-gray-400 text-sm">{product.name}</p>
                             </div>
                         </div>
-                        <div className="flex gap-2">
-                            <button onClick={() => router.back()} className="flex-1 sm:flex-none px-4 py-2 bg-gray-700 hover:bg-gray-600 text-white rounded-lg transition-colors">
-                                Cancel
-                            </button>
-                            <button
-                                onClick={handleSave}
-                                disabled={saving}
-                                className="flex-1 sm:flex-none px-4 py-2 bg-green-600 hover:bg-green-700 disabled:bg-gray-600 text-white rounded-lg transition-colors flex items-center justify-center gap-2"
-                            >
-                                {saving ? (
-                                    <><div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />Saving...</>
-                                ) : (
-                                    <><Save className="w-4 h-4" />Save Changes</>
-                                )}
-                            </button>
+                        <div className="flex items-center gap-3">
+                            <div className="hidden sm:flex items-center gap-2 text-xs text-gray-500">
+                                <kbd className="px-2 py-1 bg-gray-700 rounded">⌘S</kbd>
+                                <span>Save</span>
+                                <kbd className="px-2 py-1 bg-gray-700 rounded ml-2">Esc</kbd>
+                                <span>Cancel</span>
+                            </div>
+                            <div className="flex gap-2">
+                                <button onClick={() => router.back()} className="flex-1 sm:flex-none px-4 py-2 bg-gray-700 hover:bg-gray-600 text-white rounded-lg transition-colors">
+                                    Cancel
+                                </button>
+                                <button
+                                    onClick={handleSave}
+                                    disabled={saving}
+                                    className="flex-1 sm:flex-none px-4 py-2 bg-green-600 hover:bg-green-700 disabled:bg-gray-600 text-white rounded-lg transition-colors flex items-center justify-center gap-2"
+                                >
+                                    {saving ? (
+                                        <><div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />Saving...</>
+                                    ) : (
+                                        <><Save className="w-4 h-4" />Save Changes</>
+                                    )}
+                                </button>
+                            </div>
                         </div>
+
+                        {error && (
+                            <div className="bg-red-500/10 border border-red-500/30 rounded-lg p-4">
+                                <p className="text-red-400 text-sm">{error}</p>
+                            </div>
+                        )}
                     </div>
 
-                    {error && (
-                        <div className="bg-red-500/10 border border-red-500/30 rounded-lg p-4">
-                            <p className="text-red-400 text-sm">{error}</p>
-                        </div>
-                    )}
-                </div>
+                    <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
 
-                <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+                        {/* LEFT: Form Fields */}
+                        <div className="lg:col-span-2 space-y-6">
 
-                    {/* LEFT: Form Fields */}
-                    <div className="lg:col-span-2 space-y-6">
-
-                        {/* Basic Information */}
-                        <div className="bg-gray-800 rounded-lg p-4 sm:p-6 border border-gray-700">
-                            <div className="flex items-center gap-2 mb-4">
-                                <Package className="w-5 h-5 text-blue-400" />
-                                <h2 className="text-lg font-semibold text-white">Basic Information</h2>
-                            </div>
-
-                            <div className="space-y-4">
-                                <div>
-                                    <label className="block text-sm font-medium text-gray-300 mb-2">Product Name *</label>
-                                    <input
-                                        type="text"
-                                        value={productName}
-                                        onChange={(e) => setProductName(e.target.value)}
-                                        className="w-full bg-gray-900 border border-gray-600 rounded-lg px-4 py-3 text-white focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                                        required
-                                    />
+                            {/* Basic Information */}
+                            <div className="bg-gray-800 rounded-lg p-4 sm:p-6 border border-gray-700">
+                                <div className="flex items-center gap-2 mb-4">
+                                    <Package className="w-5 h-5 text-blue-400" />
+                                    <h2 className="text-lg font-semibold text-white">Basic Information</h2>
                                 </div>
 
-                                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                                <div className="space-y-4">
                                     <div>
-                                        <label className="block text-sm font-medium text-gray-300 mb-2">SKU *</label>
+                                        <label className="block text-sm font-medium text-gray-300 mb-2">Product Name *</label>
                                         <input
                                             type="text"
-                                            value={sku}
-                                            onChange={(e) => setSku(e.target.value)}
+                                            value={productName}
+                                            onChange={(e) => setProductName(e.target.value)}
                                             className="w-full bg-gray-900 border border-gray-600 rounded-lg px-4 py-3 text-white focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                                             required
                                         />
                                     </div>
 
+                                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                                        <div>
+                                            <label className="block text-sm font-medium text-gray-300 mb-2">SKU *</label>
+                                            <input
+                                                type="text"
+                                                value={sku}
+                                                onChange={(e) => setSku(e.target.value)}
+                                                className="w-full bg-gray-900 border border-gray-600 rounded-lg px-4 py-3 text-white focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                                                required
+                                            />
+                                        </div>
+
+                                        <div>
+                                            <label className="block text-sm font-medium text-gray-300 mb-2">Category</label>
+                                            <select
+                                                value={category}
+                                                onChange={(e) => setCategory(e.target.value)}
+                                                className="w-full bg-gray-900 border border-gray-600 rounded-lg px-4 py-3 text-white focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                                            >
+                                                <option value="">Select category</option>
+                                                <option value="Electronics">Electronics</option>
+                                                <option value="Fashion">Fashion</option>
+                                                <option value="Beauty">Beauty</option>
+                                                <option value="Home">Home & Garden</option>
+                                                <option value="Sports">Sports & Outdoors</option>
+                                                <option value="Other">Other</option>
+                                            </select>
+                                        </div>
+                                    </div>
+
                                     <div>
-                                        <label className="block text-sm font-medium text-gray-300 mb-2">Category</label>
-                                        <select
-                                            value={category}
-                                            onChange={(e) => setCategory(e.target.value)}
-                                            className="w-full bg-gray-900 border border-gray-600 rounded-lg px-4 py-3 text-white focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                                        >
-                                            <option value="">Select category</option>
-                                            <option value="Electronics">Electronics</option>
-                                            <option value="Fashion">Fashion</option>
-                                            <option value="Beauty">Beauty</option>
-                                            <option value="Home">Home & Garden</option>
-                                            <option value="Sports">Sports & Outdoors</option>
-                                            <option value="Other">Other</option>
-                                        </select>
+                                        <label className="block text-sm font-medium text-gray-300 mb-2">Description</label>
+                                        <textarea
+                                            value={description}
+                                            onChange={(e) => setDescription(e.target.value)}
+                                            rows={3}
+                                            className="w-full bg-gray-900 border border-gray-600 rounded-lg px-4 py-3 text-white resize-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                                        />
                                     </div>
                                 </div>
-
-                                <div>
-                                    <label className="block text-sm font-medium text-gray-300 mb-2">Description</label>
-                                    <textarea
-                                        value={description}
-                                        onChange={(e) => setDescription(e.target.value)}
-                                        rows={3}
-                                        className="w-full bg-gray-900 border border-gray-600 rounded-lg px-4 py-3 text-white resize-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                                    />
-                                </div>
-                            </div>
-                        </div>
-
-                        {/* Pricing & Stock */}
-                        <div className="bg-gray-800 rounded-lg p-4 sm:p-6 border border-gray-700">
-                            <div className="flex items-center gap-2 mb-4">
-                                <DollarSign className="w-5 h-5 text-green-400" />
-                                <h2 className="text-lg font-semibold text-white">Pricing & Stock</h2>
                             </div>
 
-                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                                <div>
-                                    <label className="block text-sm font-medium text-gray-300 mb-2">Cost Price (MAD)</label>
-                                    <input
-                                        type="number"
-                                        step="0.01"
-                                        value={costPrice}
-                                        onChange={(e) => setCostPrice(e.target.value)}
-                                        className="w-full bg-gray-900 border border-gray-600 rounded-lg px-4 py-3 text-white"
-                                    />
+                            {/* Pricing & Stock */}
+                            <div className="bg-gray-800 rounded-lg p-4 sm:p-6 border border-gray-700">
+                                <div className="flex items-center gap-2 mb-4">
+                                    <DollarSign className="w-5 h-5 text-green-400" />
+                                    <h2 className="text-lg font-semibold text-white">Pricing & Stock</h2>
                                 </div>
 
-                                <div>
-                                    <label className="block text-sm font-medium text-gray-300 mb-2">Selling Price (MAD) *</label>
-                                    <input
-                                        type="number"
-                                        step="0.01"
-                                        value={sellingPrice}
-                                        onChange={(e) => setSellingPrice(e.target.value)}
-                                        className="w-full bg-gray-900 border border-gray-600 rounded-lg px-4 py-3 text-white"
-                                        required
-                                    />
+                                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                                    <div>
+                                        <label className="block text-sm font-medium text-gray-300 mb-2">Cost Price (MAD)</label>
+                                        <input
+                                            type="number"
+                                            step="0.01"
+                                            value={costPrice}
+                                            onChange={(e) => setCostPrice(e.target.value)}
+                                            className="w-full bg-gray-900 border border-gray-600 rounded-lg px-4 py-3 text-white"
+                                        />
+                                    </div>
+
+                                    <div>
+                                        <label className="block text-sm font-medium text-gray-300 mb-2">Selling Price (MAD) *</label>
+                                        <input
+                                            type="number"
+                                            step="0.01"
+                                            value={sellingPrice}
+                                            onChange={(e) => setSellingPrice(e.target.value)}
+                                            className="w-full bg-gray-900 border border-gray-600 rounded-lg px-4 py-3 text-white"
+                                            required
+                                        />
+                                    </div>
+
+                                    {variants.length === 0 && (
+                                        <>
+                                            <div>
+                                                <label className="block text-sm font-medium text-gray-300 mb-2">Stock Quantity</label>
+                                                <input
+                                                    type="number"
+                                                    value={stock}
+                                                    onChange={(e) => setStock(e.target.value)}
+                                                    className="w-full bg-gray-900 border border-gray-600 rounded-lg px-4 py-3 text-white"
+                                                />
+                                            </div>
+                                            <div>
+                                                <label className="block text-sm font-medium text-gray-300 mb-2">Low Stock Alert</label>
+                                                <input
+                                                    type="number"
+                                                    value={lowStockThreshold}
+                                                    onChange={(e) => setLowStockThreshold(e.target.value)}
+                                                    className="w-full bg-gray-900 border border-gray-600 rounded-lg px-4 py-3 text-white"
+                                                />
+                                            </div>
+                                        </>
+                                    )}
                                 </div>
 
-                                {variants.length === 0 && (
-                                    <>
-                                        <div>
-                                            <label className="block text-sm font-medium text-gray-300 mb-2">Stock Quantity</label>
-                                            <input
-                                                type="number"
-                                                value={stock}
-                                                onChange={(e) => setStock(e.target.value)}
-                                                className="w-full bg-gray-900 border border-gray-600 rounded-lg px-4 py-3 text-white"
-                                            />
+                                {costPrice && sellingPrice && (
+                                    <div className="mt-4 p-4 bg-gray-900 rounded-lg border border-gray-600">
+                                        <div className="flex items-center justify-between">
+                                            <div>
+                                                <p className="text-sm text-gray-400">Profit per unit:</p>
+                                                <p className="text-2xl font-bold text-green-400">
+                                                    {(parseFloat(sellingPrice) - parseFloat(costPrice)).toFixed(2)} MAD
+                                                </p>
+                                            </div>
+                                            <div className="text-right">
+                                                <p className="text-sm text-gray-400">Margin:</p>
+                                                <p className="text-2xl font-bold text-blue-400">
+                                                    {parseFloat(sellingPrice) > 0
+                                                        ? ((parseFloat(sellingPrice) - parseFloat(costPrice)) / parseFloat(sellingPrice) * 100).toFixed(1)
+                                                        : '0'}%
+                                                </p>
+                                            </div>
                                         </div>
-                                        <div>
-                                            <label className="block text-sm font-medium text-gray-300 mb-2">Low Stock Alert</label>
-                                            <input
-                                                type="number"
-                                                value={lowStockThreshold}
-                                                onChange={(e) => setLowStockThreshold(e.target.value)}
-                                                className="w-full bg-gray-900 border border-gray-600 rounded-lg px-4 py-3 text-white"
-                                            />
-                                        </div>
-                                    </>
+                                    </div>
                                 )}
                             </div>
 
-                            {costPrice && sellingPrice && (
-                                <div className="mt-4 p-4 bg-gray-900 rounded-lg border border-gray-600">
-                                    <div className="flex items-center justify-between">
-                                        <div>
-                                            <p className="text-sm text-gray-400">Profit per unit:</p>
-                                            <p className="text-2xl font-bold text-green-400">
-                                                {(parseFloat(sellingPrice) - parseFloat(costPrice)).toFixed(2)} MAD
-                                            </p>
+                            {/* Existing Variants Management */}
+                            {variants.length > 0 && (
+                                <div className="bg-gray-800 rounded-lg p-4 sm:p-6 border border-gray-700">
+                                    <div className="flex items-center justify-between mb-4">
+                                        <div className="flex items-center gap-2">
+                                            <Tag className="w-5 h-5 text-purple-400" />
+                                            <h2 className="text-lg font-semibold text-white">Existing Variants</h2>
+                                            <span className="text-sm text-gray-400">({variants.length})</span>
                                         </div>
-                                        <div className="text-right">
-                                            <p className="text-sm text-gray-400">Margin:</p>
-                                            <p className="text-2xl font-bold text-blue-400">
-                                                {parseFloat(sellingPrice) > 0
-                                                    ? ((parseFloat(sellingPrice) - parseFloat(costPrice)) / parseFloat(sellingPrice) * 100).toFixed(1)
-                                                    : '0'}%
-                                            </p>
-                                        </div>
+                                        <span className="text-sm text-blue-400">
+                                            Total Stock: {variants.reduce((sum, v) => sum + v.stock_quantity, 0)}
+                                        </span>
                                     </div>
-                                </div>
-                            )}
-                        </div>
 
-                        {/* Existing Variants Management */}
-                        {variants.length > 0 && (
-                            <div className="bg-gray-800 rounded-lg p-4 sm:p-6 border border-gray-700">
-                                <div className="flex items-center justify-between mb-4">
-                                    <div className="flex items-center gap-2">
-                                        <Tag className="w-5 h-5 text-purple-400" />
-                                        <h2 className="text-lg font-semibold text-white">Existing Variants</h2>
-                                        <span className="text-sm text-gray-400">({variants.length})</span>
-                                    </div>
-                                    <span className="text-sm text-blue-400">
-                                        Total Stock: {variants.reduce((sum, v) => sum + v.stock_quantity, 0)}
-                                    </span>
-                                </div>
-
-                                <div className="space-y-2 max-h-80 overflow-y-auto">
-                                    {variants.map((variant, index) => (
-                                        <div key={variant.id} className="flex flex-col sm:flex-row sm:items-center gap-3 p-3 bg-gray-900 rounded-lg border border-gray-700">
-                                            <div className="flex-1 min-w-0">
-                                                <p className="text-sm font-medium text-white truncate">{variant.variant_name}</p>
-                                                <p className="text-xs text-gray-500">{variant.sku}</p>
-                                            </div>
-
-                                            <div className="flex items-center gap-2">
-                                                <div className="w-24">
-                                                    <label className="text-xs text-gray-400 block mb-1">Stock</label>
-                                                    <input
-                                                        type="number"
-                                                        value={variant.stock_quantity}
-                                                        onChange={(e) => updateVariantField(index, 'stock_quantity', parseInt(e.target.value) || 0)}
-                                                        className="w-full bg-gray-800 border border-gray-600 rounded px-2 py-1.5 text-sm text-white"
-                                                    />
+                                    <div className="space-y-2 max-h-80 overflow-y-auto">
+                                        {variants.map((variant, index) => (
+                                            <div key={variant.id} className="flex flex-col sm:flex-row sm:items-center gap-3 p-3 bg-gray-900 rounded-lg border border-gray-700">
+                                                <div className="flex-1 min-w-0">
+                                                    <p className="text-sm font-medium text-white truncate">{variant.variant_name}</p>
+                                                    <p className="text-xs text-gray-500">{variant.sku}</p>
                                                 </div>
 
-                                                <div className="w-28">
-                                                    <label className="text-xs text-gray-400 block mb-1">Price Override</label>
-                                                    <input
-                                                        type="number"
-                                                        step="0.01"
-                                                        value={variant.price_override || ''}
-                                                        onChange={(e) => updateVariantField(index, 'price_override', e.target.value ? parseFloat(e.target.value) : null)}
-                                                        placeholder={sellingPrice}
-                                                        className="w-full bg-gray-800 border border-gray-600 rounded px-2 py-1.5 text-sm text-white"
-                                                    />
+                                                <div className="flex items-center gap-2">
+                                                    <div className="w-24">
+                                                        <label className="text-xs text-gray-400 block mb-1">Stock</label>
+                                                        <input
+                                                            type="number"
+                                                            value={variant.stock_quantity}
+                                                            onChange={(e) => updateVariantField(index, 'stock_quantity', parseInt(e.target.value) || 0)}
+                                                            className="w-full bg-gray-800 border border-gray-600 rounded px-2 py-1.5 text-sm text-white"
+                                                        />
+                                                    </div>
+
+                                                    <div className="w-28">
+                                                        <label className="text-xs text-gray-400 block mb-1">Price Override</label>
+                                                        <input
+                                                            type="number"
+                                                            step="0.01"
+                                                            value={variant.price_override || ''}
+                                                            onChange={(e) => updateVariantField(index, 'price_override', e.target.value ? parseFloat(e.target.value) : null)}
+                                                            placeholder={sellingPrice}
+                                                            className="w-full bg-gray-800 border border-gray-600 rounded px-2 py-1.5 text-sm text-white"
+                                                        />
+                                                    </div>
+
+                                                    <button
+                                                        type="button"
+                                                        onClick={() => handleDeleteVariant(variant.id)}
+                                                        className="p-2 hover:bg-red-500/20 rounded transition-colors mt-5"
+                                                        title="Delete variant"
+                                                    >
+                                                        <Trash2 className="w-4 h-4 text-red-400" />
+                                                    </button>
                                                 </div>
-
-                                                <button
-                                                    type="button"
-                                                    onClick={() => handleDeleteVariant(variant.id)}
-                                                    className="p-2 hover:bg-red-500/20 rounded transition-colors mt-5"
-                                                    title="Delete variant"
-                                                >
-                                                    <Trash2 className="w-4 h-4 text-red-400" />
-                                                </button>
-                                            </div>
-                                        </div>
-                                    ))}
-                                </div>
-                            </div>
-                        )}
-
-                        {/* Add New Variants Section */}
-                        <div className="bg-gray-800 rounded-lg p-4 sm:p-6 border border-gray-700">
-                            <div className="flex items-center gap-2 mb-4">
-                                <Plus className="w-5 h-5 text-green-400" />
-                                <h2 className="text-lg font-semibold text-white">Add New Variants</h2>
-                                <span className="text-sm text-gray-400">(Optional)</span>
-                            </div>
-
-                            <p className="text-sm text-gray-400 mb-4">
-                                Add new variation types to create additional variants for this product.
-                            </p>
-
-                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-4">
-                                <div>
-                                    <label className="block text-sm font-medium text-gray-300 mb-2">Variation Type</label>
-                                    <input
-                                        type="text"
-                                        value={newVariationType}
-                                        onChange={(e) => setNewVariationType(e.target.value)}
-                                        className="w-full bg-gray-900 border border-gray-600 rounded-lg px-4 py-3 text-white"
-                                        placeholder="e.g., Color, Size, Material"
-                                    />
-                                </div>
-                                <div>
-                                    <label className="block text-sm font-medium text-gray-300 mb-2">Values (comma-separated)</label>
-                                    <input
-                                        type="text"
-                                        value={newVariationValues}
-                                        onChange={(e) => setNewVariationValues(e.target.value)}
-                                        className="w-full bg-gray-900 border border-gray-600 rounded-lg px-4 py-3 text-white"
-                                        placeholder="e.g., Black, White, Red"
-                                    />
-                                </div>
-                            </div>
-
-                            <button
-                                type="button"
-                                onClick={handleAddVariationType}
-                                className="px-4 py-2 bg-green-600 hover:bg-green-700 text-white rounded-lg transition-colors flex items-center gap-2"
-                            >
-                                <Plus className="w-4 h-4" />
-                                Add Variation Type
-                            </button>
-
-                            {pendingVariationOptions.length > 0 && (
-                                <div className="mt-4 space-y-2">
-                                    <p className="text-sm font-medium text-gray-300">Pending Variation Types:</p>
-                                    {pendingVariationOptions.map((opt, idx) => (
-                                        <div key={idx} className="flex items-center justify-between p-2 bg-gray-900 rounded border border-gray-600">
-                                            <span className="text-white">{opt.type}: <span className="text-gray-400">{opt.values.join(', ')}</span></span>
-                                            <button type="button" onClick={() => removePendingVariation(idx)} className="text-red-400 hover:text-red-300">
-                                                <X className="w-4 h-4" />
-                                            </button>
-                                        </div>
-                                    ))}
-                                </div>
-                            )}
-
-                            {newGeneratedVariants.length > 0 && (
-                                <div className="mt-4 p-4 bg-green-500/10 border border-green-500/30 rounded-lg">
-                                    <p className="text-sm font-medium text-green-400 mb-3">
-                                        Will create {newGeneratedVariants.length} new variant(s):
-                                    </p>
-                                    <div className="space-y-2 max-h-40 overflow-y-auto">
-                                        {newGeneratedVariants.map((v, i) => (
-                                            <div key={i} className="flex items-center gap-3 p-2 bg-gray-900 rounded">
-                                                <span className="text-sm text-white flex-1">{v.variant_name}</span>
-                                                <input
-                                                    type="number"
-                                                    value={v.stock_quantity}
-                                                    onChange={(e) => updateNewVariant(i, 'stock_quantity', e.target.value)}
-                                                    className="w-20 bg-gray-800 border border-gray-600 rounded px-2 py-1 text-sm text-white"
-                                                    placeholder="Stock"
-                                                />
                                             </div>
                                         ))}
                                     </div>
                                 </div>
                             )}
-                        </div>
-                    </div>
 
-                    {/* RIGHT: Image */}
-                    <div>
-                        <div className="bg-gray-800 rounded-lg p-4 sm:p-6 border border-gray-700 lg:sticky lg:top-6">
-                            <div className="flex items-center gap-2 mb-4">
-                                <ImageIcon className="w-5 h-5 text-yellow-400" />
-                                <h2 className="text-lg font-semibold text-white">Product Image</h2>
-                            </div>
-
-                            <div className="space-y-4">
-                                {/* Tab Toggle */}
-                                <div className="flex gap-2 p-1 bg-gray-900 rounded-lg">
-                                    <button
-                                        type="button"
-                                        onClick={() => setImageInputMode('url')}
-                                        className={`flex-1 px-3 py-2 rounded-md text-sm font-medium transition-colors ${imageInputMode === 'url' ? 'bg-blue-600 text-white' : 'text-gray-400 hover:text-white'
-                                            }`}
-                                    >
-                                        Image URL
-                                    </button>
-                                    <button
-                                        type="button"
-                                        onClick={() => setImageInputMode('upload')}
-                                        className={`flex-1 px-3 py-2 rounded-md text-sm font-medium transition-colors ${imageInputMode === 'upload' ? 'bg-blue-600 text-white' : 'text-gray-400 hover:text-white'
-                                            }`}
-                                    >
-                                        Upload File
-                                    </button>
+                            {/* Add New Variants Section */}
+                            <div className="bg-gray-800 rounded-lg p-4 sm:p-6 border border-gray-700">
+                                <div className="flex items-center gap-2 mb-4">
+                                    <Plus className="w-5 h-5 text-green-400" />
+                                    <h2 className="text-lg font-semibold text-white">Add New Variants</h2>
+                                    <span className="text-sm text-gray-400">(Optional)</span>
                                 </div>
 
-                                {imageInputMode === 'url' && (
+                                <p className="text-sm text-gray-400 mb-4">
+                                    Add new variation types to create additional variants for this product.
+                                </p>
+
+                                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-4">
                                     <div>
-                                        <label className="block text-sm font-medium text-gray-300 mb-2">Image URL</label>
+                                        <label className="block text-sm font-medium text-gray-300 mb-2">Variation Type</label>
                                         <input
-                                            type="url"
-                                            value={imageUrl}
-                                            onChange={(e) => { setImageUrl(e.target.value); setImagePreviewError(false); }}
-                                            className="w-full bg-gray-900 border border-gray-600 rounded-lg px-4 py-3 text-white text-sm"
-                                            placeholder="https://example.com/image.jpg"
+                                            type="text"
+                                            value={newVariationType}
+                                            onChange={(e) => setNewVariationType(e.target.value)}
+                                            className="w-full bg-gray-900 border border-gray-600 rounded-lg px-4 py-3 text-white"
+                                            placeholder="e.g., Color, Size, Material"
                                         />
+                                    </div>
+                                    <div>
+                                        <label className="block text-sm font-medium text-gray-300 mb-2">Values (comma-separated)</label>
+                                        <input
+                                            type="text"
+                                            value={newVariationValues}
+                                            onChange={(e) => setNewVariationValues(e.target.value)}
+                                            className="w-full bg-gray-900 border border-gray-600 rounded-lg px-4 py-3 text-white"
+                                            placeholder="e.g., Black, White, Red"
+                                        />
+                                    </div>
+                                </div>
+
+                                <button
+                                    type="button"
+                                    onClick={handleAddVariationType}
+                                    className="px-4 py-2 bg-green-600 hover:bg-green-700 text-white rounded-lg transition-colors flex items-center gap-2"
+                                >
+                                    <Plus className="w-4 h-4" />
+                                    Add Variation Type
+                                </button>
+
+                                {pendingVariationOptions.length > 0 && (
+                                    <div className="mt-4 space-y-2">
+                                        <p className="text-sm font-medium text-gray-300">Pending Variation Types:</p>
+                                        {pendingVariationOptions.map((opt, idx) => (
+                                            <div key={idx} className="flex items-center justify-between p-2 bg-gray-900 rounded border border-gray-600">
+                                                <span className="text-white">{opt.type}: <span className="text-gray-400">{opt.values.join(', ')}</span></span>
+                                                <button type="button" onClick={() => removePendingVariation(idx)} className="text-red-400 hover:text-red-300">
+                                                    <X className="w-4 h-4" />
+                                                </button>
+                                            </div>
+                                        ))}
                                     </div>
                                 )}
 
-                                {imageInputMode === 'upload' && (
-                                    <div>
-                                        <label className="block text-sm font-medium text-gray-300 mb-2">Upload Image</label>
-                                        <div
-                                            className={`border-2 border-dashed rounded-lg p-6 text-center cursor-pointer transition-colors ${isDragging ? 'border-blue-500 bg-blue-500/10' : 'border-gray-600 hover:border-gray-500'
-                                                }`}
-                                            onDragOver={(e) => { e.preventDefault(); setIsDragging(true); }}
-                                            onDragLeave={() => setIsDragging(false)}
-                                            onDrop={handleFileDrop}
-                                            onClick={() => fileInputRef.current?.click()}
-                                        >
-                                            <input ref={fileInputRef} type="file" accept="image/*" onChange={handleFileSelect} className="hidden" />
-                                            <Upload className="w-8 h-8 text-gray-400 mx-auto mb-2" />
-                                            <p className="text-sm text-gray-400">Drag & drop or click to select</p>
-                                            <p className="text-xs text-gray-500 mt-1">PNG, JPG, WEBP up to 5MB</p>
-                                        </div>
-
-                                        {uploadProgress > 0 && uploadProgress < 100 && (
-                                            <div className="mt-2">
-                                                <div className="h-2 bg-gray-700 rounded-full overflow-hidden">
-                                                    <div className="h-full bg-blue-500 transition-all duration-300" style={{ width: `${uploadProgress}%` }} />
+                                {newGeneratedVariants.length > 0 && (
+                                    <div className="mt-4 p-4 bg-green-500/10 border border-green-500/30 rounded-lg">
+                                        <p className="text-sm font-medium text-green-400 mb-3">
+                                            Will create {newGeneratedVariants.length} new variant(s):
+                                        </p>
+                                        <div className="space-y-2 max-h-60 overflow-y-auto">
+                                            {newGeneratedVariants.map((v, i) => (
+                                                <div key={i} className="flex flex-col sm:flex-row sm:items-center gap-2 p-3 bg-gray-900 rounded-lg border border-gray-700">
+                                                    <div className="flex items-center gap-2 flex-1 min-w-0">
+                                                        {v.color && (
+                                                            <div
+                                                                className="w-6 h-6 rounded-full border-2 border-gray-600 flex-shrink-0"
+                                                                style={{ backgroundColor: getColorCode(v.color) }}
+                                                                title={v.color}
+                                                            />
+                                                        )}
+                                                        <div className="min-w-0">
+                                                            <p className="text-sm font-medium text-white truncate">{v.variant_name}</p>
+                                                            <p className="text-xs text-gray-500">{v.sku}</p>
+                                                        </div>
+                                                    </div>
+                                                    <div className="flex items-center gap-2">
+                                                        <div className="w-24">
+                                                            <label className="text-xs text-gray-400 block mb-1">Stock</label>
+                                                            <input
+                                                                type="number"
+                                                                value={v.stock_quantity}
+                                                                onChange={(e) => updateNewVariant(i, 'stock_quantity', e.target.value)}
+                                                                className="w-full bg-gray-800 border border-gray-600 rounded px-2 py-1.5 text-sm text-white"
+                                                                placeholder="0"
+                                                            />
+                                                        </div>
+                                                        <div className="w-28">
+                                                            <label className="text-xs text-gray-400 block mb-1">Price (MAD)</label>
+                                                            <input
+                                                                type="number"
+                                                                step="0.01"
+                                                                value={v.price_override || ''}
+                                                                onChange={(e) => updateNewVariant(i, 'price_override', e.target.value)}
+                                                                placeholder={sellingPrice || 'Base'}
+                                                                className="w-full bg-gray-800 border border-gray-600 rounded px-2 py-1.5 text-sm text-white"
+                                                            />
+                                                        </div>
+                                                        <button
+                                                            type="button"
+                                                            onClick={() => removeNewVariant(i)}
+                                                            className="p-2 hover:bg-red-500/20 rounded transition-colors mt-5"
+                                                            title="Remove variant"
+                                                        >
+                                                            <Trash2 className="w-4 h-4 text-red-400" />
+                                                        </button>
+                                                    </div>
                                                 </div>
-                                                <p className="text-xs text-gray-400 mt-1">Uploading... {uploadProgress}%</p>
+                                            ))}
+                                        </div>
+                                    </div>
+                                )}
+                            </div>
+                        </div>
+
+                        {/* RIGHT: Image */}
+                        <div>
+                            <div className="bg-gray-800 rounded-lg p-4 sm:p-6 border border-gray-700 lg:sticky lg:top-6">
+                                <div className="flex items-center gap-2 mb-4">
+                                    <ImageIcon className="w-5 h-5 text-yellow-400" />
+                                    <h2 className="text-lg font-semibold text-white">Product Image</h2>
+                                </div>
+
+                                <div className="space-y-4">
+                                    {/* Tab Toggle */}
+                                    <div className="flex gap-2 p-1 bg-gray-900 rounded-lg">
+                                        <button
+                                            type="button"
+                                            onClick={() => setImageInputMode('url')}
+                                            className={`flex-1 px-3 py-2 rounded-md text-sm font-medium transition-colors ${imageInputMode === 'url' ? 'bg-blue-600 text-white' : 'text-gray-400 hover:text-white'
+                                                }`}
+                                        >
+                                            Image URL
+                                        </button>
+                                        <button
+                                            type="button"
+                                            onClick={() => setImageInputMode('upload')}
+                                            className={`flex-1 px-3 py-2 rounded-md text-sm font-medium transition-colors ${imageInputMode === 'upload' ? 'bg-blue-600 text-white' : 'text-gray-400 hover:text-white'
+                                                }`}
+                                        >
+                                            Upload File
+                                        </button>
+                                    </div>
+
+                                    {imageInputMode === 'url' && (
+                                        <div>
+                                            <label className="block text-sm font-medium text-gray-300 mb-2">Image URL</label>
+                                            <input
+                                                type="url"
+                                                value={imageUrl}
+                                                onChange={(e) => { setImageUrl(e.target.value); setImagePreviewError(false); }}
+                                                className="w-full bg-gray-900 border border-gray-600 rounded-lg px-4 py-3 text-white text-sm"
+                                                placeholder="https://example.com/image.jpg"
+                                            />
+                                        </div>
+                                    )}
+
+                                    {imageInputMode === 'upload' && (
+                                        <div>
+                                            <label className="block text-sm font-medium text-gray-300 mb-2">Upload Image</label>
+                                            <div
+                                                className={`border-2 border-dashed rounded-lg p-6 text-center cursor-pointer transition-colors ${isDragging ? 'border-blue-500 bg-blue-500/10' : 'border-gray-600 hover:border-gray-500'
+                                                    }`}
+                                                onDragOver={(e) => { e.preventDefault(); setIsDragging(true); }}
+                                                onDragLeave={() => setIsDragging(false)}
+                                                onDrop={handleFileDrop}
+                                                onClick={() => fileInputRef.current?.click()}
+                                            >
+                                                <input ref={fileInputRef} type="file" accept="image/*" onChange={handleFileSelect} className="hidden" />
+                                                <Upload className="w-8 h-8 text-gray-400 mx-auto mb-2" />
+                                                <p className="text-sm text-gray-400">Drag & drop or click to select</p>
+                                                <p className="text-xs text-gray-500 mt-1">PNG, JPG, WEBP up to 5MB</p>
+                                            </div>
+
+                                            {uploadProgress > 0 && uploadProgress < 100 && (
+                                                <div className="mt-2">
+                                                    <div className="h-2 bg-gray-700 rounded-full overflow-hidden">
+                                                        <div className="h-full bg-blue-500 transition-all duration-300" style={{ width: `${uploadProgress}%` }} />
+                                                    </div>
+                                                    <p className="text-xs text-gray-400 mt-1">Uploading... {uploadProgress}%</p>
+                                                </div>
+                                            )}
+                                        </div>
+                                    )}
+
+                                    {/* Image Preview */}
+                                    <div className="aspect-square rounded-lg border border-gray-600 overflow-hidden bg-gray-900 flex items-center justify-center">
+                                        {imageUrl && !imagePreviewError ? (
+                                            <img src={imageUrl} alt="Product" className="w-full h-full object-cover" onError={() => setImagePreviewError(true)} />
+                                        ) : (
+                                            <div className="text-center p-8">
+                                                <ImageIcon className="w-16 h-16 text-gray-600 mx-auto mb-2" />
+                                                <p className="text-gray-500 text-sm">{imagePreviewError ? 'Failed to load image' : 'No image'}</p>
                                             </div>
                                         )}
                                     </div>
-                                )}
 
-                                {/* Image Preview */}
-                                <div className="aspect-square rounded-lg border border-gray-600 overflow-hidden bg-gray-900 flex items-center justify-center">
-                                    {imageUrl && !imagePreviewError ? (
-                                        <img src={imageUrl} alt="Product" className="w-full h-full object-cover" onError={() => setImagePreviewError(true)} />
-                                    ) : (
-                                        <div className="text-center p-8">
-                                            <ImageIcon className="w-16 h-16 text-gray-600 mx-auto mb-2" />
-                                            <p className="text-gray-500 text-sm">{imagePreviewError ? 'Failed to load image' : 'No image'}</p>
-                                        </div>
+                                    {imageUrl && (
+                                        <button
+                                            type="button"
+                                            onClick={() => { setImageUrl(''); setImagePreviewError(false); }}
+                                            className="w-full px-3 py-2 bg-red-600/20 hover:bg-red-600/30 text-red-400 rounded-lg transition-colors text-sm flex items-center justify-center gap-2"
+                                        >
+                                            <X className="w-4 h-4" />
+                                            Remove Image
+                                        </button>
                                     )}
                                 </div>
 
-                                {imageUrl && (
-                                    <button
-                                        type="button"
-                                        onClick={() => { setImageUrl(''); setImagePreviewError(false); }}
-                                        className="w-full px-3 py-2 bg-red-600/20 hover:bg-red-600/30 text-red-400 rounded-lg transition-colors text-sm flex items-center justify-center gap-2"
-                                    >
-                                        <X className="w-4 h-4" />
-                                        Remove Image
-                                    </button>
-                                )}
-                            </div>
-
-                            {/* Product Summary */}
-                            <div className="mt-6 pt-6 border-t border-gray-700">
-                                <h3 className="text-sm font-semibold text-white mb-3">Product Summary</h3>
-                                <div className="space-y-2 text-sm">
-                                    <div className="flex justify-between">
-                                        <span className="text-gray-400">Product ID:</span>
-                                        <span className="text-white">#{product.id}</span>
-                                    </div>
-                                    <div className="flex justify-between">
-                                        <span className="text-gray-400">SKU:</span>
-                                        <span className="text-white">{sku}</span>
-                                    </div>
-                                    <div className="flex justify-between">
-                                        <span className="text-gray-400">Price:</span>
-                                        <span className="text-green-400 font-medium">{sellingPrice ? `${sellingPrice} MAD` : '-'}</span>
-                                    </div>
-                                    <div className="flex justify-between">
-                                        <span className="text-gray-400">Existing Variants:</span>
-                                        <span className="text-purple-400 font-medium">{variants.length}</span>
-                                    </div>
-                                    {newGeneratedVariants.length > 0 && (
+                                {/* Product Summary */}
+                                <div className="mt-6 pt-6 border-t border-gray-700">
+                                    <h3 className="text-sm font-semibold text-white mb-3">Product Summary</h3>
+                                    <div className="space-y-2 text-sm">
                                         <div className="flex justify-between">
-                                            <span className="text-gray-400">New Variants:</span>
-                                            <span className="text-green-400 font-medium">+{newGeneratedVariants.length}</span>
+                                            <span className="text-gray-400">Product ID:</span>
+                                            <span className="text-white">#{product.id}</span>
                                         </div>
-                                    )}
-                                    <div className="flex justify-between">
-                                        <span className="text-gray-400">Total Stock:</span>
-                                        <span className="text-blue-400 font-medium">
-                                            {variants.reduce((sum, v) => sum + v.stock_quantity, 0) + newGeneratedVariants.reduce((sum, v) => sum + v.stock_quantity, 0)}
-                                        </span>
+                                        <div className="flex justify-between">
+                                            <span className="text-gray-400">SKU:</span>
+                                            <span className="text-white">{sku}</span>
+                                        </div>
+                                        <div className="flex justify-between">
+                                            <span className="text-gray-400">Price:</span>
+                                            <span className="text-green-400 font-medium">{sellingPrice ? `${sellingPrice} MAD` : '-'}</span>
+                                        </div>
+                                        <div className="flex justify-between">
+                                            <span className="text-gray-400">Existing Variants:</span>
+                                            <span className="text-purple-400 font-medium">{variants.length}</span>
+                                        </div>
+                                        {newGeneratedVariants.length > 0 && (
+                                            <div className="flex justify-between">
+                                                <span className="text-gray-400">New Variants:</span>
+                                                <span className="text-green-400 font-medium">+{newGeneratedVariants.length}</span>
+                                            </div>
+                                        )}
+                                        <div className="flex justify-between">
+                                            <span className="text-gray-400">Total Stock:</span>
+                                            <span className="text-blue-400 font-medium">
+                                                {variants.reduce((sum, v) => sum + v.stock_quantity, 0) + newGeneratedVariants.reduce((sum, v) => sum + v.stock_quantity, 0)}
+                                            </span>
+                                        </div>
                                     </div>
                                 </div>
                             </div>

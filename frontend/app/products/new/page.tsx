@@ -3,7 +3,7 @@
 import { useState, useEffect, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 import {
-    ArrowLeft, Save, X, Plus, Package, DollarSign, Tag, Image as ImageIcon, Trash2, Upload
+    ArrowLeft, Save, X, Plus, Package, DollarSign, Tag, Image as ImageIcon, Trash2, Upload, Check, TrendingUp
 } from 'lucide-react';
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000';
@@ -52,6 +52,19 @@ export default function NewProductPage() {
 
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState('');
+    const [formProgress, setFormProgress] = useState(0);
+
+    // Get color code for color swatch
+    const getColorCode = (colorName: string): string => {
+        const colors: Record<string, string> = {
+            'black': '#000000', 'white': '#FFFFFF', 'red': '#EF4444',
+            'blue': '#3B82F6', 'green': '#22C55E', 'yellow': '#EAB308',
+            'orange': '#F97316', 'purple': '#A855F7', 'pink': '#EC4899',
+            'gray': '#6B7280', 'gold': '#F59E0B', 'silver': '#9CA3AF',
+            'navy': '#1E3A8A', 'brown': '#92400E',
+        };
+        return colors[colorName?.toLowerCase()] || '#6B7280';
+    };
 
     // Update summary in real-time
     const [summary, setSummary] = useState({
@@ -69,6 +82,17 @@ export default function NewProductPage() {
             variants: generatedVariants.length > 0 ? `${generatedVariants.length}` : 'None'
         });
     }, [productName, sku, sellingPrice, generatedVariants]);
+
+    // Calculate form progress
+    useEffect(() => {
+        let progress = 0;
+        if (productName) progress += 25;
+        if (sku) progress += 25;
+        if (sellingPrice) progress += 25;
+        if (costPrice) progress += 15;
+        if (imageUrl) progress += 10;
+        setFormProgress(Math.min(progress, 100));
+    }, [productName, sku, sellingPrice, costPrice, imageUrl]);
 
     // Add variation option
     const handleAddVariation = () => {
@@ -307,6 +331,20 @@ export default function NewProductPage() {
                             <p className="text-red-400 text-sm">{error}</p>
                         </div>
                     )}
+
+                    {/* Progress Indicator */}
+                    <div className="mt-4 mb-2">
+                        <div className="flex items-center justify-between text-sm text-gray-400 mb-2">
+                            <span>Form Progress</span>
+                            <span>{formProgress}% Complete</span>
+                        </div>
+                        <div className="h-2 bg-gray-700 rounded-full overflow-hidden">
+                            <div
+                                className="h-full bg-gradient-to-r from-blue-500 to-green-500 transition-all duration-500"
+                                style={{ width: `${formProgress}%` }}
+                            />
+                        </div>
+                    </div>
                 </div>
 
                 <form onSubmit={handleSubmit}>
@@ -534,9 +572,18 @@ export default function NewProductPage() {
                                         <div className="space-y-2 max-h-60 overflow-y-auto">
                                             {generatedVariants.map((variant, index) => (
                                                 <div key={index} className="flex flex-col sm:flex-row sm:items-center gap-3 p-3 bg-gray-900 rounded-lg border border-gray-700">
-                                                    <div className="flex-1 min-w-0">
-                                                        <p className="text-sm font-medium text-white truncate">{variant.variant_name}</p>
-                                                        <p className="text-xs text-gray-500 truncate">{variant.sku}</p>
+                                                    <div className="flex items-center gap-2 flex-1 min-w-0">
+                                                        {variant.color && (
+                                                            <div
+                                                                className="w-6 h-6 rounded-full border-2 border-gray-600 flex-shrink-0"
+                                                                style={{ backgroundColor: getColorCode(variant.color) }}
+                                                                title={variant.color}
+                                                            />
+                                                        )}
+                                                        <div className="min-w-0">
+                                                            <p className="text-sm font-medium text-white truncate">{variant.variant_name}</p>
+                                                            <p className="text-xs text-gray-500 truncate">{variant.sku}</p>
+                                                        </div>
                                                     </div>
 
                                                     <div className="flex items-center gap-2">
