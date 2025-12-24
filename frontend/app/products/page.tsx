@@ -5,7 +5,7 @@ import {
     Package, Search, Plus, MoreVertical, Edit, Trash2, Eye,
     AlertTriangle, TrendingUp, DollarSign, Boxes, Tag,
     ChevronLeft, ChevronRight, RefreshCw, Star,
-    PackagePlus, PackageMinus
+    PackagePlus, PackageMinus, X, Palette, Ruler, Box
 } from 'lucide-react';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -79,18 +79,52 @@ export default function ProductsPage() {
         low_stock_threshold: '10',
         image_url: '',
     });
-    // Variants for new product
-    const [newVariants, setNewVariants] = useState<{
-        variant_name: string;
-        sku: string;
-        color: string;
-        size: string;
-        capacity: string;
-        image_url: string;
-        price_override: string;
-        stock_quantity: string;
+    // Smart Variation Options - Each type can have multiple values
+    // Example: { type: 'Color', values: ['Black', 'White', 'Red'] }
+    const [variationOptions, setVariationOptions] = useState<{
+        type: string;
+        values: string[];
+        newValue: string; // temp input for adding new value
     }[]>([]);
     const [showVariants, setShowVariants] = useState(false);
+
+    // Predefined variation types with icons
+    const variationTypes = [
+        { value: 'Color', label: 'Color', icon: Palette },
+        { value: 'Size', label: 'Size', icon: Ruler },
+        { value: 'Capacity', label: 'Capacity', icon: Box },
+        { value: 'Material', label: 'Material', icon: Package },
+        { value: 'Style', label: 'Style', icon: Tag },
+    ];
+
+    // Generate all variant combinations from the options
+    const generateVariantCombinations = () => {
+        if (variationOptions.length === 0) return [];
+
+        const optionsWithValues = variationOptions.filter(opt => opt.values.length > 0);
+        if (optionsWithValues.length === 0) return [];
+
+        // Generate cartesian product of all options
+        const combinations: { name: string; attributes: Record<string, string> }[] = [];
+
+        const generate = (index: number, current: Record<string, string>) => {
+            if (index === optionsWithValues.length) {
+                const name = Object.values(current).join(' / ');
+                combinations.push({ name, attributes: { ...current } });
+                return;
+            }
+
+            const option = optionsWithValues[index];
+            for (const value of option.values) {
+                generate(index + 1, { ...current, [option.type]: value });
+            }
+        };
+
+        generate(0, {});
+        return combinations;
+    };
+
+    const variantCombinations = generateVariantCombinations();
 
     const [stockAdjustment, setStockAdjustment] = useState({
         quantity: '',
@@ -120,7 +154,8 @@ export default function ProductsPage() {
         if (!newProduct.name || !newProduct.sku || !newProduct.selling_price) return;
 
         try {
-            await createProduct.mutateAsync({
+            // Create the product first
+            const createdProduct = await createProduct.mutateAsync({
                 name: newProduct.name,
                 sku: newProduct.sku,
                 description: newProduct.description || undefined,
@@ -129,7 +164,34 @@ export default function ProductsPage() {
                 selling_price: Number(newProduct.selling_price),
                 stock_quantity: Number(newProduct.stock_quantity) || 0,
                 low_stock_threshold: Number(newProduct.low_stock_threshold) || 10,
+                image_url: newProduct.image_url || undefined,
             });
+
+            // If there are variant combinations, create them
+            if (variantCombinations.length > 0 && createdProduct?.id) {
+                const token = localStorage.getItem('access_token');
+                let variantIndex = 1;
+                for (const combo of variantCombinations) {
+                    const variantSku = `${newProduct.sku}-V${variantIndex.toString().padStart(2, '0')}`;
+                    await fetch(`${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000'}/api/v1/products/${createdProduct.id}/variants`, {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json',
+                            'Authorization': `Bearer ${token}`,
+                        },
+                        body: JSON.stringify({
+                            variant_name: combo.name,
+                            sku: variantSku,
+                            color: combo.attributes.Color || undefined,
+                            size: combo.attributes.Size || undefined,
+                            capacity: combo.attributes.Capacity || undefined,
+                            stock_quantity: 0,
+                        }),
+                    });
+                    variantIndex++;
+                }
+            }
+
             setCreateDialog(false);
             setNewProduct({
                 name: '',
@@ -140,7 +202,10 @@ export default function ProductsPage() {
                 selling_price: '',
                 stock_quantity: '',
                 low_stock_threshold: '10',
+                image_url: '',
             });
+            setVariationOptions([]);
+            setShowVariants(false);
         } catch (error) {
             console.error('Failed to create product:', error);
         }
@@ -586,108 +651,178 @@ export default function ProductsPage() {
                             />
                         </div>
 
-                        {/* Variants Section */}
+                        {/* Product Variations Section */}
                         <div className="col-span-2 border-t border-slate-700 pt-4 mt-2">
-                            <div className="flex items-center justify-between mb-3">
-                                <Label className="text-slate-300 text-base font-semibold">
-                                    Product Variations (Colors, Sizes, etc.)
-                                </Label>
-                                <Button
-                                    type="button"
-                                    variant="outline"
-                                    size="sm"
-                                    onClick={() => setShowVariants(!showVariants)}
-                                    className="border-slate-600 text-slate-300"
-                                >
-                                    {showVariants ? 'Hide Variants' : 'Add Variants'}
-                                </Button>
+                            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 mb-4">
+                                <div>
+                                    <Label className="text-white text-base font-semibold">Variations</Label>
+                                    <p className="text-xs text-slate-400 mt-0.5">Define product variants like Color, Size, or Capacity</p>
+                                </div>
+                                {!showVariants && (
+                                    <Button
+                                        type="button"
+                                        variant="ghost"
+                                        size="sm"
+                                        onClick={() => {
+                                            setShowVariants(true);
+                                            if (variationOptions.length === 0) {
+                                                setVariationOptions([{ type: '', values: [], newValue: '' }]);
+                                            }
+                                        }}
+                                        className="text-blue-400 hover:text-blue-300 hover:bg-blue-500/10"
+                                    >
+                                        <Plus className="h-4 w-4 mr-1" />
+                                        + Add Variation
+                                    </Button>
+                                )}
                             </div>
 
                             {showVariants && (
-                                <div className="space-y-3 bg-slate-700/30 p-4 rounded-lg">
-                                    {newVariants.map((variant, idx) => (
-                                        <div key={idx} className="grid grid-cols-4 gap-2 p-3 bg-slate-800 rounded border border-slate-600">
-                                            <Input
-                                                placeholder="Variant Name (e.g., Black)"
-                                                value={variant.variant_name}
-                                                onChange={(e) => {
-                                                    const updated = [...newVariants];
-                                                    updated[idx].variant_name = e.target.value;
-                                                    setNewVariants(updated);
-                                                }}
-                                                className="bg-slate-700 border-slate-600 text-white text-sm"
-                                            />
-                                            <Input
-                                                placeholder="SKU (e.g., PROD-BLK)"
-                                                value={variant.sku}
-                                                onChange={(e) => {
-                                                    const updated = [...newVariants];
-                                                    updated[idx].sku = e.target.value.toUpperCase();
-                                                    setNewVariants(updated);
-                                                }}
-                                                className="bg-slate-700 border-slate-600 text-white text-sm"
-                                            />
-                                            <Input
-                                                placeholder="Price Override"
-                                                type="number"
-                                                value={variant.price_override}
-                                                onChange={(e) => {
-                                                    const updated = [...newVariants];
-                                                    updated[idx].price_override = e.target.value;
-                                                    setNewVariants(updated);
-                                                }}
-                                                className="bg-slate-700 border-slate-600 text-white text-sm"
-                                            />
-                                            <div className="flex gap-2">
-                                                <Input
-                                                    placeholder="Stock"
-                                                    type="number"
-                                                    value={variant.stock_quantity}
-                                                    onChange={(e) => {
-                                                        const updated = [...newVariants];
-                                                        updated[idx].stock_quantity = e.target.value;
-                                                        setNewVariants(updated);
-                                                    }}
-                                                    className="bg-slate-700 border-slate-600 text-white text-sm flex-1"
-                                                />
-                                                <Button
-                                                    type="button"
-                                                    variant="ghost"
-                                                    size="sm"
-                                                    onClick={() => {
-                                                        setNewVariants(newVariants.filter((_, i) => i !== idx));
-                                                    }}
-                                                    className="text-red-400 hover:text-red-300 px-2"
-                                                >
-                                                    <Trash2 className="h-4 w-4" />
-                                                </Button>
+                                <div className="space-y-4">
+                                    {/* Variation Options */}
+                                    {variationOptions.map((option, optIndex) => (
+                                        <div key={optIndex} className="bg-slate-800/50 rounded-xl border border-slate-700 overflow-hidden">
+                                            {/* Variation Header */}
+                                            <div className="p-3 sm:p-4 border-b border-slate-700/50">
+                                                <div className="flex flex-col sm:flex-row items-start gap-3">
+                                                    <div className="flex-1 w-full space-y-3">
+                                                        {/* Variation Type Input */}
+                                                        <div>
+                                                            <Label className="text-slate-400 text-xs uppercase tracking-wide mb-1.5 block">Variation Type</Label>
+                                                            <Input
+                                                                placeholder="e.g. Color, Size, Capacity, Material"
+                                                                value={option.type}
+                                                                onChange={(e) => {
+                                                                    const updated = [...variationOptions];
+                                                                    updated[optIndex].type = e.target.value;
+                                                                    setVariationOptions(updated);
+                                                                }}
+                                                                className="bg-slate-900 border-slate-600 text-white h-10 focus:border-blue-500 focus:ring-blue-500/20"
+                                                            />
+                                                        </div>
+
+                                                        {/* Variation Values */}
+                                                        <div>
+                                                            <Label className="text-slate-400 text-xs uppercase tracking-wide mb-1.5 block">Variation Values</Label>
+                                                            <div className="flex flex-wrap gap-2 mb-2">
+                                                                {option.values.map((val, valIndex) => (
+                                                                    <span
+                                                                        key={valIndex}
+                                                                        className="inline-flex items-center gap-1.5 px-2.5 sm:px-3 py-1 sm:py-1.5 bg-slate-700 text-white text-xs sm:text-sm rounded-lg border border-slate-600 group hover:border-slate-500 transition-colors"
+                                                                    >
+                                                                        {val}
+                                                                        <button
+                                                                            type="button"
+                                                                            onClick={() => {
+                                                                                const updated = [...variationOptions];
+                                                                                updated[optIndex].values = updated[optIndex].values.filter((_, i) => i !== valIndex);
+                                                                                setVariationOptions(updated);
+                                                                            }}
+                                                                            className="text-slate-400 hover:text-red-400 transition-colors"
+                                                                        >
+                                                                            <X className="h-3 sm:h-3.5 w-3 sm:w-3.5" />
+                                                                        </button>
+                                                                    </span>
+                                                                ))}
+                                                                {/* Inline Add Value Input */}
+                                                                <div className="flex-1 min-w-[120px] sm:min-w-[150px]">
+                                                                    <Input
+                                                                        placeholder={option.values.length === 0
+                                                                            ? (option.type.toLowerCase().includes('color') ? 'e.g. Black, White, Red'
+                                                                                : option.type.toLowerCase().includes('size') ? 'e.g. S, M, L, XL'
+                                                                                    : 'e.g. Value1, Value2...')
+                                                                            : 'Add more...'}
+                                                                        value={option.newValue}
+                                                                        onChange={(e) => {
+                                                                            const updated = [...variationOptions];
+                                                                            updated[optIndex].newValue = e.target.value;
+                                                                            setVariationOptions(updated);
+                                                                        }}
+                                                                        onKeyDown={(e) => {
+                                                                            if (e.key === 'Enter' && option.newValue.trim()) {
+                                                                                e.preventDefault();
+                                                                                const updated = [...variationOptions];
+                                                                                if (!updated[optIndex].values.includes(option.newValue.trim())) {
+                                                                                    updated[optIndex].values.push(option.newValue.trim());
+                                                                                }
+                                                                                updated[optIndex].newValue = '';
+                                                                                setVariationOptions(updated);
+                                                                            }
+                                                                        }}
+                                                                        className="bg-transparent border-slate-600 text-white h-8 sm:h-9 text-xs sm:text-sm focus:border-blue-500"
+                                                                    />
+                                                                </div>
+                                                            </div>
+                                                        </div>
+                                                    </div>
+
+                                                    {/* Delete Option Button */}
+                                                    <button
+                                                        type="button"
+                                                        onClick={() => {
+                                                            const updated = variationOptions.filter((_, i) => i !== optIndex);
+                                                            setVariationOptions(updated);
+                                                            if (updated.length === 0) setShowVariants(false);
+                                                        }}
+                                                        className="p-2 text-slate-400 hover:text-red-400 hover:bg-red-500/10 rounded-lg transition-colors"
+                                                    >
+                                                        <Trash2 className="h-4 w-4" />
+                                                    </button>
+                                                </div>
                                             </div>
                                         </div>
                                     ))}
 
-                                    <Button
+                                    {/* Add Another Option Button */}
+                                    <button
                                         type="button"
-                                        variant="outline"
-                                        size="sm"
-                                        onClick={() => setNewVariants([...newVariants, {
-                                            variant_name: '',
-                                            sku: '',
-                                            color: '',
-                                            size: '',
-                                            capacity: '',
-                                            image_url: '',
-                                            price_override: '',
-                                            stock_quantity: ''
-                                        }])}
-                                        className="w-full border-dashed border-slate-500 text-slate-400"
+                                        onClick={() => {
+                                            setVariationOptions([...variationOptions, { type: '', values: [], newValue: '' }]);
+                                        }}
+                                        className="w-full py-2.5 sm:py-3 px-3 sm:px-4 border-2 border-dashed border-slate-600 rounded-xl text-slate-400 hover:text-blue-400 hover:border-blue-500/50 hover:bg-blue-500/5 transition-all flex items-center justify-center gap-2 group text-sm sm:text-base"
                                     >
-                                        <Plus className="h-4 w-4 mr-2" />
-                                        Add Another Variant
-                                    </Button>
+                                        <Plus className="h-4 w-4 group-hover:scale-110 transition-transform" />
+                                        + Add Another Variation
+                                    </button>
 
-                                    <p className="text-xs text-slate-400">
-                                        Variants will be created after the product is added. You can manage them from the product details page.
-                                    </p>
+                                    {/* Variant Combinations Preview */}
+                                    {variantCombinations.length > 0 && (
+                                        <div className="mt-4 p-4 bg-gradient-to-br from-slate-800/80 to-slate-900/80 rounded-xl border border-slate-700">
+                                            <div className="flex items-center justify-between mb-3">
+                                                <div className="flex items-center gap-2">
+                                                    <div className="w-8 h-8 bg-blue-500/20 rounded-lg flex items-center justify-center">
+                                                        <Package className="h-4 w-4 text-blue-400" />
+                                                    </div>
+                                                    <div>
+                                                        <p className="text-sm font-medium text-white">
+                                                            {variantCombinations.length} variants will be created
+                                                        </p>
+                                                        <p className="text-xs text-slate-400">
+                                                            Based on your option combinations
+                                                        </p>
+                                                    </div>
+                                                </div>
+                                                <Badge className="bg-blue-500/20 text-blue-300 border border-blue-500/30">
+                                                    Auto-generated
+                                                </Badge>
+                                            </div>
+                                            <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-2 max-h-[160px] overflow-y-auto custom-scrollbar">
+                                                {variantCombinations.slice(0, 12).map((combo, i) => (
+                                                    <div
+                                                        key={i}
+                                                        className="px-3 py-2 bg-slate-700/50 rounded-lg text-sm text-slate-300 truncate border border-slate-600/50"
+                                                    >
+                                                        {combo.name}
+                                                    </div>
+                                                ))}
+                                                {variantCombinations.length > 12 && (
+                                                    <div className="px-3 py-2 bg-slate-700/30 rounded-lg text-sm text-slate-500 border border-slate-600/30 flex items-center justify-center">
+                                                        +{variantCombinations.length - 12} more
+                                                    </div>
+                                                )}
+                                            </div>
+                                        </div>
+                                    )}
                                 </div>
                             )}
                         </div>
@@ -703,11 +838,12 @@ export default function ProductsPage() {
                             {createProduct.isPending ? 'Creating...' : 'Create Product'}
                         </Button>
                     </DialogFooter>
-                </DialogContent>
-            </Dialog>
+                </DialogContent >
+            </Dialog >
 
             {/* Adjust Stock Dialog */}
-            <Dialog open={stockDialog.open} onOpenChange={(open) => setStockDialog({ open, product: open ? stockDialog.product : null })}>
+            < Dialog open={stockDialog.open} onOpenChange={(open) => setStockDialog({ open, product: open ? stockDialog.product : null })
+            }>
                 <DialogContent className="bg-slate-800 border-slate-700 text-white">
                     <DialogHeader>
                         <DialogTitle>Adjust Stock: {stockDialog.product?.name}</DialogTitle>
@@ -771,10 +907,10 @@ export default function ProductsPage() {
                         </Button>
                     </DialogFooter>
                 </DialogContent>
-            </Dialog>
+            </Dialog >
 
             {/* Delete Confirmation Dialog */}
-            <Dialog open={deleteDialog.open} onOpenChange={(open) => setDeleteDialog({ open, product: open ? deleteDialog.product : null })}>
+            < Dialog open={deleteDialog.open} onOpenChange={(open) => setDeleteDialog({ open, product: open ? deleteDialog.product : null })}>
                 <DialogContent className="bg-slate-800 border-slate-700 text-white">
                     <DialogHeader>
                         <DialogTitle>Delete Product</DialogTitle>
@@ -796,7 +932,7 @@ export default function ProductsPage() {
                         </Button>
                     </DialogFooter>
                 </DialogContent>
-            </Dialog>
-        </div>
+            </Dialog >
+        </div >
     );
 }

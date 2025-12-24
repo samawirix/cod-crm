@@ -3,10 +3,11 @@
 import React, { useState, useEffect } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import {
-    Package, ArrowLeft, Save, RefreshCw, X
+    Package, ArrowLeft, Save, RefreshCw, X, Plus, Trash2, Palette, Ruler, Box
 } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
+import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
@@ -43,6 +44,50 @@ export default function EditProductPage() {
         is_active: true,
         is_featured: false,
     });
+
+    // Smart Variation Options - Each type can have multiple values
+    const [variationOptions, setVariationOptions] = useState<{
+        type: string;
+        values: string[];
+        newValue: string;
+    }[]>([]);
+    const [showVariants, setShowVariants] = useState(false);
+
+    // Predefined variation types with icons
+    const variationTypes = [
+        { value: 'Color', label: 'Color', icon: Palette },
+        { value: 'Size', label: 'Size', icon: Ruler },
+        { value: 'Capacity', label: 'Capacity', icon: Box },
+        { value: 'Material', label: 'Material', icon: Package },
+    ];
+
+    // Generate all variant combinations from the options
+    const generateVariantCombinations = () => {
+        if (variationOptions.length === 0) return [];
+
+        const optionsWithValues = variationOptions.filter(opt => opt.values.length > 0);
+        if (optionsWithValues.length === 0) return [];
+
+        const combinations: { name: string; attributes: Record<string, string> }[] = [];
+
+        const generate = (index: number, current: Record<string, string>) => {
+            if (index === optionsWithValues.length) {
+                const name = Object.values(current).join(' / ');
+                combinations.push({ name, attributes: { ...current } });
+                return;
+            }
+
+            const option = optionsWithValues[index];
+            for (const value of option.values) {
+                generate(index + 1, { ...current, [option.type]: value });
+            }
+        };
+
+        generate(0, {});
+        return combinations;
+    };
+
+    const variantCombinations = generateVariantCombinations();
 
     // Populate form when product loads
     useEffect(() => {
@@ -310,6 +355,182 @@ export default function EditProductPage() {
                                 </div>
                             </div>
                         </CardContent>
+                    </Card>
+
+                    {/* Product Variations */}
+                    <Card className="bg-slate-800 border-slate-700 lg:col-span-2">
+                        <CardHeader>
+                            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+                                <div>
+                                    <CardTitle className="text-white">Variations</CardTitle>
+                                    <p className="text-sm text-slate-400 font-normal mt-1">Define product variants like Color, Size, or Capacity</p>
+                                </div>
+                                {!showVariants && (
+                                    <Button
+                                        type="button"
+                                        variant="ghost"
+                                        size="sm"
+                                        onClick={() => {
+                                            setShowVariants(true);
+                                            if (variationOptions.length === 0) {
+                                                setVariationOptions([{ type: '', values: [], newValue: '' }]);
+                                            }
+                                        }}
+                                        className="text-blue-400 hover:text-blue-300 hover:bg-blue-500/10"
+                                    >
+                                        <Plus className="h-4 w-4 mr-1" />
+                                        + Add Variation
+                                    </Button>
+                                )}
+                            </div>
+                        </CardHeader>
+                        {showVariants && (
+                            <CardContent className="space-y-4 pt-0">
+                                {/* Variation Options */}
+                                {variationOptions.map((option, optIndex) => (
+                                    <div key={optIndex} className="bg-slate-800/50 rounded-xl border border-slate-700 overflow-hidden">
+                                        <div className="p-3 sm:p-4 border-b border-slate-700/50">
+                                            <div className="flex flex-col sm:flex-row items-start gap-3">
+                                                <div className="flex-1 w-full space-y-3">
+                                                    {/* Variation Type Input */}
+                                                    <div>
+                                                        <Label className="text-slate-400 text-xs uppercase tracking-wide mb-1.5 block">Variation Type</Label>
+                                                        <Input
+                                                            placeholder="e.g. Color, Size, Capacity, Material"
+                                                            value={option.type}
+                                                            onChange={(e) => {
+                                                                const updated = [...variationOptions];
+                                                                updated[optIndex].type = e.target.value;
+                                                                setVariationOptions(updated);
+                                                            }}
+                                                            className="bg-slate-900 border-slate-600 text-white h-10 focus:border-blue-500 focus:ring-blue-500/20"
+                                                        />
+                                                    </div>
+
+                                                    {/* Variation Values */}
+                                                    <div>
+                                                        <Label className="text-slate-400 text-xs uppercase tracking-wide mb-1.5 block">Variation Values</Label>
+                                                        <div className="flex flex-wrap gap-2 mb-2">
+                                                            {option.values.map((val, valIndex) => (
+                                                                <span
+                                                                    key={valIndex}
+                                                                    className="inline-flex items-center gap-1.5 px-2.5 sm:px-3 py-1 sm:py-1.5 bg-slate-700 text-white text-xs sm:text-sm rounded-lg border border-slate-600 group hover:border-slate-500 transition-colors"
+                                                                >
+                                                                    {val}
+                                                                    <button
+                                                                        type="button"
+                                                                        onClick={() => {
+                                                                            const updated = [...variationOptions];
+                                                                            updated[optIndex].values = updated[optIndex].values.filter((_, i) => i !== valIndex);
+                                                                            setVariationOptions(updated);
+                                                                        }}
+                                                                        className="text-slate-400 hover:text-red-400 transition-colors"
+                                                                    >
+                                                                        <X className="h-3 sm:h-3.5 w-3 sm:w-3.5" />
+                                                                    </button>
+                                                                </span>
+                                                            ))}
+                                                            {/* Inline Add Value Input */}
+                                                            <div className="flex-1 min-w-[120px] sm:min-w-[150px]">
+                                                                <Input
+                                                                    placeholder={option.values.length === 0
+                                                                        ? (option.type.toLowerCase().includes('color') ? 'e.g. Black, White, Red'
+                                                                            : option.type.toLowerCase().includes('size') ? 'e.g. S, M, L, XL'
+                                                                                : 'e.g. Value1, Value2...')
+                                                                        : 'Add more...'}
+                                                                    value={option.newValue}
+                                                                    onChange={(e) => {
+                                                                        const updated = [...variationOptions];
+                                                                        updated[optIndex].newValue = e.target.value;
+                                                                        setVariationOptions(updated);
+                                                                    }}
+                                                                    onKeyDown={(e) => {
+                                                                        if (e.key === 'Enter' && option.newValue.trim()) {
+                                                                            e.preventDefault();
+                                                                            const updated = [...variationOptions];
+                                                                            if (!updated[optIndex].values.includes(option.newValue.trim())) {
+                                                                                updated[optIndex].values.push(option.newValue.trim());
+                                                                            }
+                                                                            updated[optIndex].newValue = '';
+                                                                            setVariationOptions(updated);
+                                                                        }
+                                                                    }}
+                                                                    className="bg-transparent border-slate-600 text-white h-8 sm:h-9 text-xs sm:text-sm focus:border-blue-500"
+                                                                />
+                                                            </div>
+                                                        </div>
+                                                    </div>
+                                                </div>
+
+                                                {/* Delete Variation Button */}
+                                                <button
+                                                    type="button"
+                                                    onClick={() => {
+                                                        const updated = variationOptions.filter((_, i) => i !== optIndex);
+                                                        setVariationOptions(updated);
+                                                        if (updated.length === 0) setShowVariants(false);
+                                                    }}
+                                                    className="p-2 text-slate-400 hover:text-red-400 hover:bg-red-500/10 rounded-lg transition-colors"
+                                                >
+                                                    <Trash2 className="h-4 w-4" />
+                                                </button>
+                                            </div>
+                                        </div>
+                                    </div>
+                                ))}
+
+                                {/* Add Another Variation Button */}
+                                <button
+                                    type="button"
+                                    onClick={() => {
+                                        setVariationOptions([...variationOptions, { type: '', values: [], newValue: '' }]);
+                                    }}
+                                    className="w-full py-2.5 sm:py-3 px-3 sm:px-4 border-2 border-dashed border-slate-600 rounded-xl text-slate-400 hover:text-blue-400 hover:border-blue-500/50 hover:bg-blue-500/5 transition-all flex items-center justify-center gap-2 group text-sm sm:text-base"
+                                >
+                                    <Plus className="h-4 w-4 group-hover:scale-110 transition-transform" />
+                                    + Add Another Variation
+                                </button>
+
+                                {/* Variant Combinations Preview */}
+                                {variantCombinations.length > 0 && (
+                                    <div className="mt-4 p-4 bg-gradient-to-br from-slate-800/80 to-slate-900/80 rounded-xl border border-slate-700">
+                                        <div className="flex items-center justify-between mb-3">
+                                            <div className="flex items-center gap-2">
+                                                <div className="w-8 h-8 bg-blue-500/20 rounded-lg flex items-center justify-center">
+                                                    <Package className="h-4 w-4 text-blue-400" />
+                                                </div>
+                                                <div>
+                                                    <p className="text-sm font-medium text-white">
+                                                        {variantCombinations.length} variants will be created
+                                                    </p>
+                                                    <p className="text-xs text-slate-400">
+                                                        Based on your variation combinations
+                                                    </p>
+                                                </div>
+                                            </div>
+                                            <Badge className="bg-blue-500/20 text-blue-300 border border-blue-500/30">
+                                                Auto-generated
+                                            </Badge>
+                                        </div>
+                                        <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-2 max-h-[160px] overflow-y-auto">
+                                            {variantCombinations.slice(0, 12).map((combo, i) => (
+                                                <div
+                                                    key={i}
+                                                    className="px-3 py-2 bg-slate-700/50 rounded-lg text-sm text-slate-300 truncate border border-slate-600/50"
+                                                >
+                                                    {combo.name}
+                                                </div>
+                                            ))}
+                                            {variantCombinations.length > 12 && (
+                                                <div className="px-3 py-2 bg-slate-700/30 rounded-lg text-sm text-slate-500 border border-slate-600/30 flex items-center justify-center">
+                                                    +{variantCombinations.length - 12} more
+                                                </div>
+                                            )}
+                                        </div>
+                                    </div>
+                                )}
+                            </CardContent>
+                        )}
                     </Card>
                 </div>
             )}
