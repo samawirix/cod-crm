@@ -288,7 +288,7 @@ export default function ProductsPage() {
                     </Button>
                     <Button
                         className="bg-blue-600 hover:bg-blue-700"
-                        onClick={() => setCreateDialog(true)}
+                        onClick={() => router.push('/products/new')}
                     >
                         <Plus className="h-4 w-4 mr-2" />
                         Add Product
