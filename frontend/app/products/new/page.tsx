@@ -1,10 +1,9 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useRouter } from 'next/navigation';
-import Image from 'next/image';
 import {
-    ArrowLeft, Save, X, Plus, Package, DollarSign, Tag, Image as ImageIcon, Trash2
+    ArrowLeft, Save, X, Plus, Package, DollarSign, Tag, Image as ImageIcon, Trash2, Upload
 } from 'lucide-react';
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000';
@@ -38,6 +37,13 @@ export default function NewProductPage() {
     const [description, setDescription] = useState('');
     const [imageUrl, setImageUrl] = useState('');
 
+    // Image upload states
+    const [imageInputMode, setImageInputMode] = useState<'url' | 'upload'>('url');
+    const [isDragging, setIsDragging] = useState(false);
+    const [uploadProgress, setUploadProgress] = useState(0);
+    const [imagePreviewError, setImagePreviewError] = useState(false);
+    const fileInputRef = useRef<HTMLInputElement>(null);
+
     // Variations
     const [variationOptions, setVariationOptions] = useState<VariationOption[]>([]);
     const [currentType, setCurrentType] = useState('');
@@ -46,7 +52,6 @@ export default function NewProductPage() {
 
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState('');
-    const [imagePreviewError, setImagePreviewError] = useState(false);
 
     // Update summary in real-time
     const [summary, setSummary] = useState({
@@ -72,11 +77,7 @@ export default function NewProductPage() {
             return;
         }
 
-        const values = currentValues
-            .split(',')
-            .map(v => v.trim())
-            .filter(v => v.length > 0);
-
+        const values = currentValues.split(',').map(v => v.trim()).filter(v => v.length > 0);
         if (values.length === 0) {
             alert('Please enter at least one value');
             return;
@@ -115,15 +116,11 @@ export default function NewProductPage() {
 
         const variants: GeneratedVariant[] = combinations.map((combo) => {
             const attributes: Record<string, string> = {};
-
             options.forEach((opt, i) => {
-                const key = opt.type.toLowerCase();
-                attributes[key] = combo[i];
+                attributes[opt.type.toLowerCase()] = combo[i];
             });
 
-            const skuSuffix = combo
-                .map(v => v.toUpperCase().replace(/\s+/g, '-'))
-                .join('-');
+            const skuSuffix = combo.map(v => v.toUpperCase().replace(/\s+/g, '-')).join('-');
             const generatedSku = `${sku || 'PROD'}-${skuSuffix}`;
 
             return {
@@ -154,6 +151,60 @@ export default function NewProductPage() {
     // Delete variant
     const deleteVariant = (index: number) => {
         setGeneratedVariants(generatedVariants.filter((_, i) => i !== index));
+    };
+
+    // Image handling
+    const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
+        const file = e.target.files?.[0];
+        if (file) uploadImage(file);
+    };
+
+    const handleFileDrop = (e: React.DragEvent) => {
+        e.preventDefault();
+        setIsDragging(false);
+        const file = e.dataTransfer.files?.[0];
+        if (file && file.type.startsWith('image/')) {
+            uploadImage(file);
+        }
+    };
+
+    const uploadImage = async (file: File) => {
+        if (file.size > 5 * 1024 * 1024) {
+            alert('Image must be less than 5MB');
+            return;
+        }
+
+        setUploadProgress(10);
+        const formData = new FormData();
+        formData.append('file', file);
+
+        try {
+            const token = localStorage.getItem('access_token');
+
+            const progressInterval = setInterval(() => {
+                setUploadProgress(prev => Math.min(prev + 10, 90));
+            }, 200);
+
+            const response = await fetch(`${API_URL}/api/v1/uploads/image`, {
+                method: 'POST',
+                headers: { 'Authorization': `Bearer ${token}` },
+                body: formData
+            });
+
+            clearInterval(progressInterval);
+
+            if (response.ok) {
+                const data = await response.json();
+                setImageUrl(`${API_URL}${data.url}`);
+                setUploadProgress(100);
+                setTimeout(() => setUploadProgress(0), 1000);
+            } else {
+                throw new Error('Upload failed');
+            }
+        } catch (err) {
+            setUploadProgress(0);
+            alert('Failed to upload image. Please try URL instead.');
+        }
     };
 
     // Submit form
@@ -225,10 +276,7 @@ export default function NewProductPage() {
                 <div className="mb-6">
                     <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-4">
                         <div className="flex items-center gap-4">
-                            <button
-                                onClick={() => router.back()}
-                                className="p-2 hover:bg-gray-800 rounded-lg transition-colors"
-                            >
+                            <button onClick={() => router.back()} className="p-2 hover:bg-gray-800 rounded-lg transition-colors">
                                 <ArrowLeft className="w-5 h-5 text-gray-400" />
                             </button>
                             <div>
@@ -237,11 +285,7 @@ export default function NewProductPage() {
                             </div>
                         </div>
                         <div className="flex gap-2">
-                            <button
-                                type="button"
-                                onClick={() => router.back()}
-                                className="flex-1 sm:flex-none px-4 py-2 bg-gray-700 hover:bg-gray-600 text-white rounded-lg transition-colors"
-                            >
+                            <button onClick={() => router.back()} className="flex-1 sm:flex-none px-4 py-2 bg-gray-700 hover:bg-gray-600 text-white rounded-lg transition-colors">
                                 Cancel
                             </button>
                             <button
@@ -250,15 +294,9 @@ export default function NewProductPage() {
                                 className="flex-1 sm:flex-none px-4 py-2 bg-green-600 hover:bg-green-700 disabled:bg-gray-600 text-white rounded-lg transition-colors flex items-center justify-center gap-2"
                             >
                                 {loading ? (
-                                    <>
-                                        <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
-                                        Creating...
-                                    </>
+                                    <><div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />Creating...</>
                                 ) : (
-                                    <>
-                                        <Save className="w-4 h-4" />
-                                        Create Product
-                                    </>
+                                    <><Save className="w-4 h-4" />Create Product</>
                                 )}
                             </button>
                         </div>
@@ -286,9 +324,7 @@ export default function NewProductPage() {
 
                                 <div className="space-y-4">
                                     <div>
-                                        <label className="block text-sm font-medium text-gray-300 mb-2">
-                                            Product Name *
-                                        </label>
+                                        <label className="block text-sm font-medium text-gray-300 mb-2">Product Name *</label>
                                         <input
                                             type="text"
                                             value={productName}
@@ -301,17 +337,13 @@ export default function NewProductPage() {
 
                                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                                         <div>
-                                            <label className="block text-sm font-medium text-gray-300 mb-2">
-                                                SKU *
-                                            </label>
+                                            <label className="block text-sm font-medium text-gray-300 mb-2">SKU *</label>
                                             <input
                                                 type="text"
                                                 value={sku}
                                                 onChange={(e) => {
                                                     setSku(e.target.value);
-                                                    if (variationOptions.length > 0) {
-                                                        generateVariants(variationOptions);
-                                                    }
+                                                    if (variationOptions.length > 0) generateVariants(variationOptions);
                                                 }}
                                                 className="w-full bg-gray-900 border border-gray-600 rounded-lg px-4 py-3 text-white focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                                                 placeholder="e.g., PROD-001"
@@ -320,9 +352,7 @@ export default function NewProductPage() {
                                         </div>
 
                                         <div>
-                                            <label className="block text-sm font-medium text-gray-300 mb-2">
-                                                Category
-                                            </label>
+                                            <label className="block text-sm font-medium text-gray-300 mb-2">Category</label>
                                             <select
                                                 value={category}
                                                 onChange={(e) => setCategory(e.target.value)}
@@ -340,13 +370,11 @@ export default function NewProductPage() {
                                     </div>
 
                                     <div>
-                                        <label className="block text-sm font-medium text-gray-300 mb-2">
-                                            Description
-                                        </label>
+                                        <label className="block text-sm font-medium text-gray-300 mb-2">Description</label>
                                         <textarea
                                             value={description}
                                             onChange={(e) => setDescription(e.target.value)}
-                                            rows={4}
+                                            rows={3}
                                             className="w-full bg-gray-900 border border-gray-600 rounded-lg px-4 py-3 text-white resize-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                                             placeholder="Product description..."
                                         />
@@ -363,29 +391,25 @@ export default function NewProductPage() {
 
                                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                                     <div>
-                                        <label className="block text-sm font-medium text-gray-300 mb-2">
-                                            Cost Price (MAD)
-                                        </label>
+                                        <label className="block text-sm font-medium text-gray-300 mb-2">Cost Price (MAD)</label>
                                         <input
                                             type="number"
                                             step="0.01"
                                             value={costPrice}
                                             onChange={(e) => setCostPrice(e.target.value)}
-                                            className="w-full bg-gray-900 border border-gray-600 rounded-lg px-4 py-3 text-white focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                                            className="w-full bg-gray-900 border border-gray-600 rounded-lg px-4 py-3 text-white"
                                             placeholder="0.00"
                                         />
                                     </div>
 
                                     <div>
-                                        <label className="block text-sm font-medium text-gray-300 mb-2">
-                                            Selling Price (MAD) *
-                                        </label>
+                                        <label className="block text-sm font-medium text-gray-300 mb-2">Selling Price (MAD) *</label>
                                         <input
                                             type="number"
                                             step="0.01"
                                             value={sellingPrice}
                                             onChange={(e) => setSellingPrice(e.target.value)}
-                                            className="w-full bg-gray-900 border border-gray-600 rounded-lg px-4 py-3 text-white focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                                            className="w-full bg-gray-900 border border-gray-600 rounded-lg px-4 py-3 text-white"
                                             placeholder="0.00"
                                             required
                                         />
@@ -394,33 +418,27 @@ export default function NewProductPage() {
                                     {generatedVariants.length === 0 && (
                                         <>
                                             <div>
-                                                <label className="block text-sm font-medium text-gray-300 mb-2">
-                                                    Initial Stock
-                                                </label>
+                                                <label className="block text-sm font-medium text-gray-300 mb-2">Initial Stock</label>
                                                 <input
                                                     type="number"
                                                     value={initialStock}
                                                     onChange={(e) => setInitialStock(e.target.value)}
-                                                    className="w-full bg-gray-900 border border-gray-600 rounded-lg px-4 py-3 text-white focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                                                    className="w-full bg-gray-900 border border-gray-600 rounded-lg px-4 py-3 text-white"
                                                 />
                                             </div>
-
                                             <div>
-                                                <label className="block text-sm font-medium text-gray-300 mb-2">
-                                                    Low Stock Alert
-                                                </label>
+                                                <label className="block text-sm font-medium text-gray-300 mb-2">Low Stock Alert</label>
                                                 <input
                                                     type="number"
                                                     value={lowStockThreshold}
                                                     onChange={(e) => setLowStockThreshold(e.target.value)}
-                                                    className="w-full bg-gray-900 border border-gray-600 rounded-lg px-4 py-3 text-white focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                                                    className="w-full bg-gray-900 border border-gray-600 rounded-lg px-4 py-3 text-white"
                                                 />
                                             </div>
                                         </>
                                     )}
                                 </div>
 
-                                {/* Profit Preview */}
                                 {costPrice && sellingPrice && (
                                     <div className="mt-4 p-4 bg-gray-900 rounded-lg border border-gray-600">
                                         <div className="flex items-center justify-between">
@@ -433,7 +451,9 @@ export default function NewProductPage() {
                                             <div className="text-right">
                                                 <p className="text-sm text-gray-400">Margin:</p>
                                                 <p className="text-2xl font-bold text-blue-400">
-                                                    {((parseFloat(sellingPrice) - parseFloat(costPrice)) / parseFloat(sellingPrice) * 100).toFixed(1)}%
+                                                    {parseFloat(sellingPrice) > 0
+                                                        ? ((parseFloat(sellingPrice) - parseFloat(costPrice)) / parseFloat(sellingPrice) * 100).toFixed(1)
+                                                        : '0'}%
                                                 </p>
                                             </div>
                                         </div>
@@ -453,66 +473,48 @@ export default function NewProductPage() {
                                     Add variation types (Color, Size, etc.) and their values. All combinations will be auto-generated.
                                 </p>
 
-                                {/* Add Variation Input */}
-                                <div className="space-y-4">
-                                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                                        <div>
-                                            <label className="block text-sm font-medium text-gray-300 mb-2">
-                                                Variation Type
-                                            </label>
-                                            <input
-                                                type="text"
-                                                value={currentType}
-                                                onChange={(e) => setCurrentType(e.target.value)}
-                                                className="w-full bg-gray-900 border border-gray-600 rounded-lg px-4 py-3 text-white focus:ring-2 focus:ring-purple-500 focus:border-transparent"
-                                                placeholder="e.g., Color, Size, Material"
-                                            />
-                                        </div>
-
-                                        <div>
-                                            <label className="block text-sm font-medium text-gray-300 mb-2">
-                                                Values (comma-separated)
-                                            </label>
-                                            <input
-                                                type="text"
-                                                value={currentValues}
-                                                onChange={(e) => setCurrentValues(e.target.value)}
-                                                className="w-full bg-gray-900 border border-gray-600 rounded-lg px-4 py-3 text-white focus:ring-2 focus:ring-purple-500 focus:border-transparent"
-                                                placeholder="e.g., Black, White, Red"
-                                            />
-                                        </div>
+                                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-4">
+                                    <div>
+                                        <label className="block text-sm font-medium text-gray-300 mb-2">Variation Type</label>
+                                        <input
+                                            type="text"
+                                            value={currentType}
+                                            onChange={(e) => setCurrentType(e.target.value)}
+                                            className="w-full bg-gray-900 border border-gray-600 rounded-lg px-4 py-3 text-white"
+                                            placeholder="e.g., Color, Size, Material"
+                                        />
                                     </div>
-
-                                    <button
-                                        type="button"
-                                        onClick={handleAddVariation}
-                                        className="w-full sm:w-auto px-4 py-2 bg-purple-600 hover:bg-purple-700 text-white rounded-lg transition-colors flex items-center justify-center gap-2"
-                                    >
-                                        <Plus className="w-4 h-4" />
-                                        Add Variation Type
-                                    </button>
+                                    <div>
+                                        <label className="block text-sm font-medium text-gray-300 mb-2">Values (comma-separated)</label>
+                                        <input
+                                            type="text"
+                                            value={currentValues}
+                                            onChange={(e) => setCurrentValues(e.target.value)}
+                                            className="w-full bg-gray-900 border border-gray-600 rounded-lg px-4 py-3 text-white"
+                                            placeholder="e.g., Black, White, Red"
+                                        />
+                                    </div>
                                 </div>
 
-                                {/* Current Variation Types */}
+                                <button
+                                    type="button"
+                                    onClick={handleAddVariation}
+                                    className="px-4 py-2 bg-purple-600 hover:bg-purple-700 text-white rounded-lg transition-colors flex items-center gap-2"
+                                >
+                                    <Plus className="w-4 h-4" />
+                                    Add Variation Type
+                                </button>
+
                                 {variationOptions.length > 0 && (
-                                    <div className="mt-6 space-y-2">
-                                        <p className="text-sm font-medium text-gray-300 mb-3">
-                                            Variation Types ({variationOptions.length}):
-                                        </p>
+                                    <div className="mt-4 space-y-2">
+                                        <p className="text-sm font-medium text-gray-300">Variation Types ({variationOptions.length}):</p>
                                         {variationOptions.map((option, index) => (
-                                            <div
-                                                key={index}
-                                                className="flex items-center justify-between p-3 bg-gray-900 rounded-lg border border-gray-600"
-                                            >
+                                            <div key={index} className="flex items-center justify-between p-3 bg-gray-900 rounded-lg border border-gray-600">
                                                 <div className="flex-1 min-w-0">
                                                     <span className="text-white font-medium">{option.type}:</span>
-                                                    <span className="text-gray-400 ml-2 truncate">{option.values.join(', ')}</span>
+                                                    <span className="text-gray-400 ml-2">{option.values.join(', ')}</span>
                                                 </div>
-                                                <button
-                                                    type="button"
-                                                    onClick={() => removeVariationOption(index)}
-                                                    className="p-1 hover:bg-gray-800 rounded transition-colors ml-2"
-                                                >
+                                                <button type="button" onClick={() => removeVariationOption(index)} className="p-1 hover:bg-gray-800 rounded transition-colors ml-2">
                                                     <X className="w-4 h-4 text-red-400" />
                                                 </button>
                                             </div>
@@ -520,24 +522,18 @@ export default function NewProductPage() {
                                     </div>
                                 )}
 
-                                {/* Generated Variants */}
                                 {generatedVariants.length > 0 && (
-                                    <div className="mt-6 p-4 bg-blue-500/10 border border-blue-500/30 rounded-lg">
+                                    <div className="mt-4 p-4 bg-blue-500/10 border border-blue-500/30 rounded-lg">
                                         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 mb-4">
-                                            <p className="text-sm font-medium text-blue-400">
-                                                Generated {generatedVariants.length} Variant(s)
-                                            </p>
+                                            <p className="text-sm font-medium text-blue-400">Generated {generatedVariants.length} Variant(s)</p>
                                             <span className="text-xs text-gray-400">
                                                 Total Stock: {generatedVariants.reduce((sum, v) => sum + v.stock_quantity, 0)}
                                             </span>
                                         </div>
 
-                                        <div className="space-y-2 max-h-96 overflow-y-auto">
+                                        <div className="space-y-2 max-h-60 overflow-y-auto">
                                             {generatedVariants.map((variant, index) => (
-                                                <div
-                                                    key={index}
-                                                    className="flex flex-col sm:flex-row sm:items-center gap-3 p-3 bg-gray-900 rounded-lg border border-gray-700"
-                                                >
+                                                <div key={index} className="flex flex-col sm:flex-row sm:items-center gap-3 p-3 bg-gray-900 rounded-lg border border-gray-700">
                                                     <div className="flex-1 min-w-0">
                                                         <p className="text-sm font-medium text-white truncate">{variant.variant_name}</p>
                                                         <p className="text-xs text-gray-500 truncate">{variant.sku}</p>
@@ -553,7 +549,6 @@ export default function NewProductPage() {
                                                                 placeholder="Stock"
                                                             />
                                                         </div>
-
                                                         <div className="w-24">
                                                             <input
                                                                 type="number"
@@ -564,12 +559,7 @@ export default function NewProductPage() {
                                                                 placeholder="Price"
                                                             />
                                                         </div>
-
-                                                        <button
-                                                            type="button"
-                                                            onClick={() => deleteVariant(index)}
-                                                            className="p-2 hover:bg-gray-800 rounded transition-colors"
-                                                        >
+                                                        <button type="button" onClick={() => deleteVariant(index)} className="p-2 hover:bg-gray-800 rounded transition-colors">
                                                             <Trash2 className="w-4 h-4 text-red-400" />
                                                         </button>
                                                     </div>
@@ -592,37 +582,75 @@ export default function NewProductPage() {
                                 </div>
 
                                 <div className="space-y-4">
-                                    <div>
-                                        <label className="block text-sm font-medium text-gray-300 mb-2">
+                                    {/* Tab Toggle */}
+                                    <div className="flex gap-2 p-1 bg-gray-900 rounded-lg">
+                                        <button
+                                            type="button"
+                                            onClick={() => setImageInputMode('url')}
+                                            className={`flex-1 px-3 py-2 rounded-md text-sm font-medium transition-colors ${imageInputMode === 'url' ? 'bg-blue-600 text-white' : 'text-gray-400 hover:text-white'
+                                                }`}
+                                        >
                                             Image URL
-                                        </label>
-                                        <input
-                                            type="url"
-                                            value={imageUrl}
-                                            onChange={(e) => {
-                                                setImageUrl(e.target.value);
-                                                setImagePreviewError(false);
-                                            }}
-                                            className="w-full bg-gray-900 border border-gray-600 rounded-lg px-4 py-3 text-white text-sm focus:ring-2 focus:ring-yellow-500 focus:border-transparent"
-                                            placeholder="https://example.com/image.jpg"
-                                        />
+                                        </button>
+                                        <button
+                                            type="button"
+                                            onClick={() => setImageInputMode('upload')}
+                                            className={`flex-1 px-3 py-2 rounded-md text-sm font-medium transition-colors ${imageInputMode === 'upload' ? 'bg-blue-600 text-white' : 'text-gray-400 hover:text-white'
+                                                }`}
+                                        >
+                                            Upload File
+                                        </button>
                                     </div>
+
+                                    {imageInputMode === 'url' && (
+                                        <div>
+                                            <label className="block text-sm font-medium text-gray-300 mb-2">Image URL</label>
+                                            <input
+                                                type="url"
+                                                value={imageUrl}
+                                                onChange={(e) => { setImageUrl(e.target.value); setImagePreviewError(false); }}
+                                                className="w-full bg-gray-900 border border-gray-600 rounded-lg px-4 py-3 text-white text-sm"
+                                                placeholder="https://example.com/image.jpg"
+                                            />
+                                        </div>
+                                    )}
+
+                                    {imageInputMode === 'upload' && (
+                                        <div>
+                                            <label className="block text-sm font-medium text-gray-300 mb-2">Upload Image</label>
+                                            <div
+                                                className={`border-2 border-dashed rounded-lg p-6 text-center cursor-pointer transition-colors ${isDragging ? 'border-blue-500 bg-blue-500/10' : 'border-gray-600 hover:border-gray-500'
+                                                    }`}
+                                                onDragOver={(e) => { e.preventDefault(); setIsDragging(true); }}
+                                                onDragLeave={() => setIsDragging(false)}
+                                                onDrop={handleFileDrop}
+                                                onClick={() => fileInputRef.current?.click()}
+                                            >
+                                                <input ref={fileInputRef} type="file" accept="image/*" onChange={handleFileSelect} className="hidden" />
+                                                <Upload className="w-8 h-8 text-gray-400 mx-auto mb-2" />
+                                                <p className="text-sm text-gray-400">Drag & drop or click to select</p>
+                                                <p className="text-xs text-gray-500 mt-1">PNG, JPG, WEBP up to 5MB</p>
+                                            </div>
+
+                                            {uploadProgress > 0 && uploadProgress < 100 && (
+                                                <div className="mt-2">
+                                                    <div className="h-2 bg-gray-700 rounded-full overflow-hidden">
+                                                        <div className="h-full bg-blue-500 transition-all duration-300" style={{ width: `${uploadProgress}%` }} />
+                                                    </div>
+                                                    <p className="text-xs text-gray-400 mt-1">Uploading... {uploadProgress}%</p>
+                                                </div>
+                                            )}
+                                        </div>
+                                    )}
 
                                     {/* Image Preview */}
                                     <div className="aspect-square rounded-lg border border-gray-600 overflow-hidden bg-gray-900 flex items-center justify-center">
                                         {imageUrl && !imagePreviewError ? (
-                                            <img
-                                                src={imageUrl}
-                                                alt="Product preview"
-                                                className="w-full h-full object-cover"
-                                                onError={() => setImagePreviewError(true)}
-                                            />
+                                            <img src={imageUrl} alt="Product preview" className="w-full h-full object-cover" onError={() => setImagePreviewError(true)} />
                                         ) : (
                                             <div className="text-center p-8">
                                                 <ImageIcon className="w-16 h-16 text-gray-600 mx-auto mb-2" />
-                                                <p className="text-gray-500 text-sm">
-                                                    {imagePreviewError ? 'Failed to load image' : 'No image'}
-                                                </p>
+                                                <p className="text-gray-500 text-sm">{imagePreviewError ? 'Failed to load image' : 'No image'}</p>
                                             </div>
                                         )}
                                     </div>
@@ -630,10 +658,7 @@ export default function NewProductPage() {
                                     {imageUrl && (
                                         <button
                                             type="button"
-                                            onClick={() => {
-                                                setImageUrl('');
-                                                setImagePreviewError(false);
-                                            }}
+                                            onClick={() => { setImageUrl(''); setImagePreviewError(false); }}
                                             className="w-full px-3 py-2 bg-red-600/20 hover:bg-red-600/30 text-red-400 rounded-lg transition-colors text-sm flex items-center justify-center gap-2"
                                         >
                                             <X className="w-4 h-4" />
@@ -665,33 +690,10 @@ export default function NewProductPage() {
                                         {generatedVariants.length > 0 && (
                                             <div className="flex justify-between">
                                                 <span className="text-gray-400">Total Stock:</span>
-                                                <span className="text-blue-400 font-medium">
-                                                    {generatedVariants.reduce((sum, v) => sum + v.stock_quantity, 0)}
-                                                </span>
+                                                <span className="text-blue-400 font-medium">{generatedVariants.reduce((sum, v) => sum + v.stock_quantity, 0)}</span>
                                             </div>
                                         )}
                                     </div>
-                                </div>
-
-                                {/* Mobile Submit Button */}
-                                <div className="mt-6 lg:hidden">
-                                    <button
-                                        onClick={handleSubmit}
-                                        disabled={loading}
-                                        className="w-full px-4 py-3 bg-green-600 hover:bg-green-700 disabled:bg-gray-600 text-white rounded-lg transition-colors flex items-center justify-center gap-2"
-                                    >
-                                        {loading ? (
-                                            <>
-                                                <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
-                                                Creating...
-                                            </>
-                                        ) : (
-                                            <>
-                                                <Save className="w-4 h-4" />
-                                                Create Product
-                                            </>
-                                        )}
-                                    </button>
                                 </div>
                             </div>
                         </div>

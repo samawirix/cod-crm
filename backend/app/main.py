@@ -1,6 +1,8 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.staticfiles import StaticFiles
 import logging
+import os
 
 from app.api.v1.auth import router as auth_router
 from app.api.v1.leads import router as leads_router
@@ -18,6 +20,7 @@ from app.api.v1.calls import router as calls_router
 from app.api.v1.couriers import router as couriers_router
 from app.api.v1.shipments import router as shipments_router
 from app.api.v1.bordereaux import router as bordereaux_router
+from app.api.v1.uploads import router as uploads_router
 from app.api.v1.websockets import websocket_endpoint
 
 # Configure logging
@@ -63,6 +66,12 @@ app.include_router(calls_router, prefix="/api/v1/calls", tags=["calls"])
 app.include_router(couriers_router, prefix="/api/v1/couriers", tags=["couriers"])
 app.include_router(shipments_router, prefix="/api/v1/shipments", tags=["shipments"])
 app.include_router(bordereaux_router, prefix="/api/v1/bordereaux", tags=["bordereaux"])
+app.include_router(uploads_router, prefix="/api/v1", tags=["uploads"])
+
+# Mount static files for uploads
+uploads_dir = os.path.join(os.path.dirname(os.path.dirname(__file__)), "uploads")
+os.makedirs(uploads_dir, exist_ok=True)
+app.mount("/uploads", StaticFiles(directory=uploads_dir), name="uploads")
 
 # WebSocket endpoints
 app.websocket("/ws/notifications/{agent_id}")(websocket_endpoint)
