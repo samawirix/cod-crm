@@ -21,7 +21,7 @@ from app.api.v1.couriers import router as couriers_router
 from app.api.v1.shipments import router as shipments_router
 from app.api.v1.bordereaux import router as bordereaux_router
 from app.api.v1.uploads import router as uploads_router
-from app.api.v1.websockets import websocket_endpoint
+from app.api.v1.websockets import websocket_endpoint, start_callback_checker
 
 # Configure logging
 logging.basicConfig(level=logging.INFO)
@@ -75,6 +75,15 @@ app.mount("/uploads", StaticFiles(directory=uploads_dir), name="uploads")
 
 # WebSocket endpoints
 app.websocket("/ws/notifications/{agent_id}")(websocket_endpoint)
+
+# Startup event to initialize background tasks
+@app.on_event("startup")
+async def startup_event():
+    """Initialize background tasks on startup"""
+    print("🚀 Starting COD CRM API...")
+    start_callback_checker()
+    print("✅ Callback notification checker started")
+
 
 @app.get("/")
 async def root():

@@ -12,7 +12,7 @@ import re
 import json
 
 from sqlalchemy import (
-    Column, Integer, String, Float, DateTime, ForeignKey, 
+    Column, Integer, String, Float, DateTime, ForeignKey, Boolean,
     Index, Text, Enum, CheckConstraint, event
 )
 from sqlalchemy.orm import relationship, validates
@@ -121,6 +121,17 @@ class Lead(Base):
     last_call_date = Column(DateTime, nullable=True)
     next_follow_up = Column(DateTime, nullable=True)
     call_attempts = Column(Integer, nullable=False, default=0)
+    
+    # Callback Scheduling Fields
+    callback_time = Column(DateTime, nullable=True)  # When to call back
+    callback_notes = Column(Text, nullable=True)  # Notes for callback
+    callback_assigned_to = Column(
+        Integer,
+        ForeignKey("users.id", ondelete="SET NULL"),
+        nullable=True
+    )
+    callback_completed = Column(Boolean, default=False)
+    callback_reminder_sent = Column(Boolean, default=False)
     
     # Flexible Data Storage
     notes = Column(

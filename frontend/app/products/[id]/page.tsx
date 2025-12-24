@@ -1,16 +1,51 @@
 'use client';
 
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import {
-    Package, ArrowLeft, Edit, Trash2, RefreshCw, TrendingUp,
-    DollarSign, Boxes, Clock, Star
+    Package, ArrowLeft, Edit, RefreshCw,
+    DollarSign, Boxes, Clock, Star, Tag
 } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { useProduct, useStockMovements } from '@/hooks/useProducts';
 import { format } from 'date-fns';
+
+const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000';
+
+// Color helper function
+const getColorCode = (colorName: string): string => {
+    const colors: Record<string, string> = {
+        'black': '#000000',
+        'white': '#FFFFFF',
+        'red': '#EF4444',
+        'blue': '#3B82F6',
+        'green': '#22C55E',
+        'yellow': '#EAB308',
+        'orange': '#F97316',
+        'purple': '#A855F7',
+        'pink': '#EC4899',
+        'gray': '#6B7280',
+        'grey': '#6B7280',
+        'gold': '#F59E0B',
+        'silver': '#9CA3AF',
+        'navy': '#1E3A5F',
+        'brown': '#92400E',
+        'beige': '#D4C4A8',
+    };
+    return colors[colorName.toLowerCase()] || '#6B7280';
+};
+
+interface Variant {
+    id: number;
+    variant_name: string;
+    sku: string;
+    stock_quantity: number;
+    price_override: number | null;
+    color?: string;
+    size?: string;
+}
 
 export default function ProductDetailPage() {
     const params = useParams();
@@ -19,6 +54,61 @@ export default function ProductDetailPage() {
 
     const { data: product, isLoading, error } = useProduct(productId);
     const { data: stockMovements } = useStockMovements(productId);
+
+    // State for variants
+    const [variants, setVariants] = useState<Variant[]>([]);
+    const [variantsLoading, setVariantsLoading] = useState(false);
+
+    // Fetch variants when product has_variants
+    useEffect(() => {
+        const fetchVariants = async () => {
+            if (!product?.has_variants || !productId) return;
+
+            setVariantsLoading(true);
+            try {
+                const token = localStorage.getItem('token');
+                const res = await fetch(`${API_URL}/api/v1/products/${productId}/variants`, {
+                    headers: { 'Authorization': `Bearer ${token}` }
+                });
+                if (res.ok) {
+                    const data = await res.json();
+                    setVariants(data);
+                }
+            } catch (err) {
+                console.error('Failed to fetch variants', err);
+            } finally {
+                setVariantsLoading(false);
+            }
+        };
+
+        fetchVariants();
+    }, [product?.has_variants, productId]);
+
+    // Calculate total stock from variants or product
+    const getTotalStock = (): number => {
+        if (product?.has_variants && variants.length > 0) {
+            return variants.reduce((sum, v) => sum + v.stock_quantity, 0);
+        }
+        return product?.stock_quantity || 0;
+    };
+
+    // Calculate stock value
+    const getStockValue = (): number => {
+        if (product?.has_variants && variants.length > 0) {
+            return variants.reduce((sum, v) => {
+                return sum + (v.stock_quantity * (product.cost_price || 0));
+            }, 0);
+        }
+        return (product?.stock_quantity || 0) * (product?.cost_price || 0);
+    };
+
+    // Get stock status based on calculated total
+    const getStockStatus = () => {
+        const total = getTotalStock();
+        if (total === 0) return { label: 'Out of Stock', color: 'red' };
+        if (total <= (product?.low_stock_threshold || 10)) return { label: 'Low Stock', color: 'orange' };
+        return { label: 'In Stock', color: 'green' };
+    };
 
     if (isLoading) {
         return (
@@ -49,15 +139,8 @@ export default function ProductDetailPage() {
         );
     }
 
-    const getStockBadge = () => {
-        if (product.is_out_of_stock) {
-            return <Badge className="bg-red-600 text-white">Out of Stock</Badge>;
-        }
-        if (product.is_low_stock) {
-            return <Badge className="bg-orange-600 text-white">Low Stock</Badge>;
-        }
-        return <Badge className="bg-green-600 text-white">In Stock</Badge>;
-    };
+    const stockStatus = getStockStatus();
+    const totalStock = getTotalStock();
 
     return (
         <div className="min-h-screen bg-slate-900 p-6">
@@ -80,7 +163,18 @@ export default function ProductDetailPage() {
                             <Badge variant="outline" className="border-slate-600 text-slate-300">
                                 {product.sku}
                             </Badge>
-                            {getStockBadge()}
+                            {/* Dynamic Stock Badge */}
+                            <Badge className={`${stockStatus.color === 'red' ? 'bg-red-600' :
+                                    stockStatus.color === 'orange' ? 'bg-orange-600' :
+                                        'bg-green-600'
+                                } text-white`}>
+                                {stockStatus.label}
+                            </Badge>
+                            {product.has_variants && (
+                                <Badge variant="outline" className="border-purple-500 text-purple-400">
+                                    {variants.length} Variants
+                                </Badge>
+                            )}
                         </div>
                     </div>
                 </div>
@@ -122,6 +216,66 @@ export default function ProductDetailPage() {
                             )}
                         </CardContent>
                     </Card>
+
+                    {/* Product Variants */}
+                    {product?.has_variants && variants.length > 0 && (
+                        <Card className="bg-slate-800 border-slate-700">
+                            <CardHeader>
+                                <div className="flex items-center justify-between">
+                                    <CardTitle className="text-white flex items-center gap-2">
+                                        <Tag className="h-5 w-5 text-purple-400" />
+                                        Product Variants
+                                        <span className="text-sm text-slate-400 font-normal">({variants.length})</span>
+                                    </CardTitle>
+                                    <span className="text-sm text-blue-400">
+                                        Total Stock: {totalStock}
+                                    </span>
+                                </div>
+                            </CardHeader>
+                            <CardContent>
+                                <div className="space-y-2">
+                                    {variants.map((variant) => (
+                                        <div
+                                            key={variant.id}
+                                            className="flex items-center justify-between p-3 bg-slate-700/50 rounded-lg border border-slate-600"
+                                        >
+                                            <div className="flex items-center gap-3">
+                                                {/* Color swatch if color variant */}
+                                                {variant.color && (
+                                                    <div
+                                                        className="w-8 h-8 rounded-full border-2 border-slate-500 shadow-inner"
+                                                        style={{ backgroundColor: getColorCode(variant.color) }}
+                                                        title={variant.color}
+                                                    />
+                                                )}
+                                                <div>
+                                                    <p className="text-white font-medium">{variant.variant_name}</p>
+                                                    <p className="text-xs text-slate-500">{variant.sku}</p>
+                                                </div>
+                                            </div>
+
+                                            <div className="flex items-center gap-6 text-sm">
+                                                <div className="text-right">
+                                                    <p className="text-slate-400 text-xs">Stock</p>
+                                                    <p className={`font-medium ${variant.stock_quantity === 0 ? 'text-red-400' :
+                                                            variant.stock_quantity <= 5 ? 'text-orange-400' : 'text-white'
+                                                        }`}>
+                                                        {variant.stock_quantity}
+                                                    </p>
+                                                </div>
+                                                <div className="text-right">
+                                                    <p className="text-slate-400 text-xs">Price</p>
+                                                    <p className="text-emerald-400 font-medium">
+                                                        {(variant.price_override || product?.selling_price || 0).toLocaleString()} MAD
+                                                    </p>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    ))}
+                                </div>
+                            </CardContent>
+                        </Card>
+                    )}
 
                     {/* Stock Movements */}
                     <Card className="bg-slate-800 border-slate-700">
@@ -194,7 +348,7 @@ export default function ProductDetailPage() {
                         </CardContent>
                     </Card>
 
-                    {/* Stock Card */}
+                    {/* Stock Card - Updated to use calculated stock */}
                     <Card className="bg-slate-800 border-slate-700">
                         <CardHeader>
                             <CardTitle className="text-white flex items-center gap-2">
@@ -204,20 +358,31 @@ export default function ProductDetailPage() {
                         </CardHeader>
                         <CardContent className="space-y-4">
                             <div className="text-center py-4">
-                                <p className={`text-4xl font-bold ${product.is_out_of_stock ? 'text-red-400' : product.is_low_stock ? 'text-orange-400' : 'text-white'}`}>
-                                    {product.stock_quantity}
+                                <p className={`text-5xl font-bold ${totalStock === 0 ? 'text-red-400' :
+                                        totalStock <= (product.low_stock_threshold || 10) ? 'text-orange-400' :
+                                            'text-green-400'
+                                    }`}>
+                                    {totalStock}
                                 </p>
-                                <p className="text-slate-400 text-sm">units in stock</p>
+                                <p className="text-slate-400 text-sm mt-1">units in stock</p>
                             </div>
-                            <div className="flex items-center justify-between pt-2 border-t border-slate-700">
-                                <p className="text-slate-400">Low stock threshold</p>
-                                <p className="text-white">{product.low_stock_threshold || 10}</p>
-                            </div>
-                            <div className="flex items-center justify-between">
-                                <p className="text-slate-400">Stock value</p>
-                                <p className="text-blue-400 font-bold">
-                                    {(product.stock_quantity * product.cost_price).toLocaleString()} MAD
-                                </p>
+                            <div className="space-y-3 pt-4 border-t border-slate-700">
+                                <div className="flex items-center justify-between">
+                                    <p className="text-slate-400">Low stock threshold</p>
+                                    <p className="text-white">{product.low_stock_threshold || 10}</p>
+                                </div>
+                                <div className="flex items-center justify-between">
+                                    <p className="text-slate-400">Stock value</p>
+                                    <p className="text-blue-400 font-bold">
+                                        {getStockValue().toLocaleString()} MAD
+                                    </p>
+                                </div>
+                                {product.has_variants && (
+                                    <div className="flex items-center justify-between">
+                                        <p className="text-slate-400">Variants</p>
+                                        <p className="text-purple-400 font-medium">{variants.length}</p>
+                                    </div>
+                                )}
                             </div>
                         </CardContent>
                     </Card>

@@ -127,8 +127,12 @@ class Product(Base):
     
     @property
     def has_variants(self):
-        """Check if product has variants"""
-        return bool(self.variants and len(self.variants) > 0)
+        """Check if product has variants (either JSON config or variant records)"""
+        # Check JSON variants config
+        has_json_variants = bool(self.variants and len(self.variants) > 0)
+        # Check variant records in database
+        has_variant_records = bool(self.product_variants and len(self.product_variants) > 0)
+        return has_json_variants or has_variant_records
     
     @property
     def variant_types(self):

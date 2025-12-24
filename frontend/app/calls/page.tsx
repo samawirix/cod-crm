@@ -27,6 +27,8 @@ interface Lead {
     status: string;
     call_count: number;
     callback_date?: string;
+    callback_time?: string;  // ISO datetime for scheduled callback
+    callback_notes?: string;  // Notes for callback
     notes?: string;
     trust?: string;
     trust_label?: string;
@@ -128,6 +130,13 @@ export default function CallCenterPage() {
     const [showCallbackPicker, setShowCallbackPicker] = useState(false);
     const [callbackDateTime, setCallbackDateTime] = useState('');
     const [showCancelReasons, setShowCancelReasons] = useState(false);
+
+    // Callback Scheduling Modal State
+    const [showCallbackModal, setShowCallbackModal] = useState(false);
+    const [callbackDate, setCallbackDate] = useState('');
+    const [callbackTime, setCallbackTime] = useState('');
+    const [callbackNotes, setCallbackNotes] = useState('');
+    const [selectedLeadForCallback, setSelectedLeadForCallback] = useState<Lead | null>(null);
 
     // Timer Effect
     useEffect(() => {
@@ -437,6 +446,72 @@ export default function CallCenterPage() {
     };
 
     // ═══════════════════════════════════════════════════════════════
+    // CALLBACK SCHEDULING
+    // ═══════════════════════════════════════════════════════════════
+
+    // Function to open callback scheduler
+    const openCallbackScheduler = (lead: Lead) => {
+        setSelectedLeadForCallback(lead);
+        // Set default to tomorrow at 10:00 AM
+        const tomorrow = new Date();
+        tomorrow.setDate(tomorrow.getDate() + 1);
+        setCallbackDate(tomorrow.toISOString().split('T')[0]);
+        setCallbackTime('10:00');
+        setCallbackNotes('');
+        setShowCallbackModal(true);
+    };
+
+    // Function to schedule callback
+    const scheduleCallback = async () => {
+        if (!selectedLeadForCallback || !callbackDate || !callbackTime) {
+            alert('Please select date and time');
+            return;
+        }
+
+        const callbackDateTime2 = new Date(`${callbackDate}T${callbackTime}`);
+
+        try {
+            const token = localStorage.getItem('access_token');
+            const response = await fetch(`${API_BASE_URL}/api/v1/leads/${selectedLeadForCallback.id}/schedule-callback`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': `Bearer ${token}`
+                },
+                body: JSON.stringify({
+                    callback_time: callbackDateTime2.toISOString(),
+                    callback_notes: callbackNotes,
+                    status: 'CALLBACK'
+                })
+            });
+
+            if (response.ok) {
+                alert(`✅ Callback scheduled for ${callbackDateTime2.toLocaleString()}`);
+                setShowCallbackModal(false);
+                queryClient.invalidateQueries({ queryKey: ['callbacks'] });
+                queryClient.invalidateQueries({ queryKey: ['focus-queue'] });
+            } else {
+                alert('Failed to schedule callback');
+            }
+        } catch (error) {
+            console.error('Error scheduling callback:', error);
+            alert('Error scheduling callback');
+        }
+    };
+
+    // Check if callback is overdue or upcoming
+    const isCallbackOverdue = (lead: Lead) => {
+        const callbackTime2 = lead.callback_time ? new Date(lead.callback_time) : null;
+        return callbackTime2 && callbackTime2 < new Date();
+    };
+
+    const isCallbackUpcoming = (lead: Lead) => {
+        const callbackTime2 = lead.callback_time ? new Date(lead.callback_time) : null;
+        return callbackTime2 && callbackTime2 > new Date() &&
+            (callbackTime2.getTime() - new Date().getTime()) < 30 * 60 * 1000; // Within 30 minutes
+    };
+
+    // ═══════════════════════════════════════════════════════════════
     // RENDER
     // ═══════════════════════════════════════════════════════════════
 
@@ -638,36 +713,135 @@ export default function CallCenterPage() {
                                         <p>No scheduled callbacks</p>
                                     </div>
                                 ) : (
-                                    (callbacksData?.callbacks || []).map((lead: Lead) => (
-                                        <div key={lead.id} style={{
-                                            padding: '12px',
-                                            backgroundColor: '#161b22',
-                                            border: '1px solid #30363d',
-                                            borderRadius: '8px',
-                                            marginBottom: '8px',
-                                        }}>
-                                            <p style={{ fontSize: '14px', fontWeight: 600, color: '#e6edf3' }}>{lead.name}</p>
-                                            <p style={{ fontSize: '12px', color: '#d29922' }}>
-                                                📅 {lead.callback_date ? new Date(lead.callback_date).toLocaleString() : 'Not scheduled'}
-                                            </p>
-                                            <button
-                                                onClick={() => startCall(lead)}
-                                                disabled={!!activeLead}
-                                                style={{
-                                                    marginTop: '8px',
-                                                    padding: '6px 16px',
-                                                    backgroundColor: '#9e6a03',
-                                                    border: 'none',
-                                                    borderRadius: '6px',
-                                                    color: 'white',
-                                                    fontSize: '12px',
-                                                    cursor: activeLead ? 'not-allowed' : 'pointer',
-                                                }}
-                                            >
-                                                Call Back
-                                            </button>
-                                        </div>
-                                    ))
+                                    (callbacksData?.callbacks || []).map((lead: Lead) => {
+                                        const callbackTimeVal = lead.callback_time ? new Date(lead.callback_time) : null;
+                                        const isPastDue = callbackTimeVal && callbackTimeVal < new Date();
+                                        const isUpcoming = callbackTimeVal && callbackTimeVal > new Date() &&
+                                            (callbackTimeVal.getTime() - new Date().getTime()) < 30 * 60 * 1000;
+                                        const minutesOverdue = callbackTimeVal && isPastDue
+                                            ? Math.round((new Date().getTime() - callbackTimeVal.getTime()) / 60000)
+                                            : 0;
+
+                                        return (
+                                            <div key={lead.id} style={{
+                                                padding: '12px',
+                                                backgroundColor: isPastDue ? 'rgba(248, 81, 73, 0.05)' : isUpcoming ? 'rgba(210, 153, 34, 0.05)' : '#161b22',
+                                                border: `1px solid ${isPastDue ? '#f85149' : isUpcoming ? '#d29922' : '#30363d'}`,
+                                                borderRadius: '8px',
+                                                marginBottom: '8px',
+                                                animation: isPastDue ? 'pulse 2s infinite' : 'none',
+                                            }}>
+                                                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+                                                    <div style={{ display: 'flex', gap: '8px', alignItems: 'flex-start' }}>
+                                                        {/* Status Indicator */}
+                                                        <div style={{
+                                                            width: '10px',
+                                                            height: '10px',
+                                                            borderRadius: '50%',
+                                                            marginTop: '4px',
+                                                            backgroundColor: isPastDue ? '#f85149' : isUpcoming ? '#d29922' : '#8b949e',
+                                                        }} />
+
+                                                        <div>
+                                                            <p style={{ fontSize: '14px', fontWeight: 600, color: '#e6edf3' }}>{lead.name}</p>
+                                                            <p style={{ fontSize: '12px', color: '#58a6ff' }}>{lead.phone}</p>
+
+                                                            {/* Callback Time Display */}
+                                                            {callbackTimeVal ? (
+                                                                <div style={{
+                                                                    display: 'flex',
+                                                                    alignItems: 'center',
+                                                                    gap: '8px',
+                                                                    marginTop: '4px',
+                                                                    color: isPastDue ? '#f85149' : isUpcoming ? '#d29922' : '#8b949e',
+                                                                    fontSize: '12px'
+                                                                }}>
+                                                                    <Clock size={12} />
+                                                                    <span>
+                                                                        {isPastDue ? '⚠️ OVERDUE: ' : ''}
+                                                                        {callbackTimeVal.toLocaleString('en-US', {
+                                                                            weekday: 'short',
+                                                                            month: 'short',
+                                                                            day: 'numeric',
+                                                                            hour: '2-digit',
+                                                                            minute: '2-digit'
+                                                                        })}
+                                                                    </span>
+                                                                    {isPastDue && minutesOverdue > 0 && (
+                                                                        <span style={{
+                                                                            backgroundColor: 'rgba(248, 81, 73, 0.2)',
+                                                                            padding: '2px 6px',
+                                                                            borderRadius: '4px',
+                                                                            fontSize: '10px',
+                                                                        }}>
+                                                                            {minutesOverdue} min ago
+                                                                        </span>
+                                                                    )}
+                                                                </div>
+                                                            ) : (
+                                                                <p style={{ fontSize: '12px', color: '#f85149', marginTop: '4px', display: 'flex', alignItems: 'center', gap: '4px' }}>
+                                                                    <Calendar size={12} />
+                                                                    Not scheduled
+                                                                </p>
+                                                            )}
+
+                                                            {/* Callback Notes */}
+                                                            {lead.callback_notes && (
+                                                                <p style={{ fontSize: '11px', color: '#8b949e', marginTop: '4px' }}>
+                                                                    📝 {lead.callback_notes}
+                                                                </p>
+                                                            )}
+                                                        </div>
+                                                    </div>
+                                                </div>
+
+                                                <div style={{ display: 'flex', gap: '8px', marginTop: '10px' }}>
+                                                    {/* Reschedule Button */}
+                                                    <button
+                                                        onClick={() => openCallbackScheduler(lead)}
+                                                        style={{
+                                                            padding: '6px 12px',
+                                                            backgroundColor: '#21262d',
+                                                            border: '1px solid #30363d',
+                                                            borderRadius: '6px',
+                                                            color: '#e6edf3',
+                                                            fontSize: '11px',
+                                                            cursor: 'pointer',
+                                                            display: 'flex',
+                                                            alignItems: 'center',
+                                                            gap: '4px',
+                                                        }}
+                                                    >
+                                                        <Calendar size={12} /> Reschedule
+                                                    </button>
+
+                                                    {/* Call Now Button */}
+                                                    <button
+                                                        onClick={() => startCall(lead)}
+                                                        disabled={!!activeLead}
+                                                        style={{
+                                                            flex: 1,
+                                                            padding: '6px 16px',
+                                                            backgroundColor: isPastDue ? '#b62324' : '#9e6a03',
+                                                            border: 'none',
+                                                            borderRadius: '6px',
+                                                            color: 'white',
+                                                            fontSize: '12px',
+                                                            fontWeight: 600,
+                                                            cursor: activeLead ? 'not-allowed' : 'pointer',
+                                                            display: 'flex',
+                                                            alignItems: 'center',
+                                                            justifyContent: 'center',
+                                                            gap: '6px',
+                                                        }}
+                                                    >
+                                                        <Phone size={14} />
+                                                        {isPastDue ? 'Call NOW!' : 'Call Back'}
+                                                    </button>
+                                                </div>
+                                            </div>
+                                        );
+                                    })
                                 )}
                             </>
                         )}
@@ -1512,6 +1686,227 @@ export default function CallCenterPage() {
                                 }}
                             >
                                 Schedule
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            )}
+
+            {/* ═══════════════════════════════════════════════════════════════ */}
+            {/* CALLBACK SCHEDULING MODAL */}
+            {/* ═══════════════════════════════════════════════════════════════ */}
+            {showCallbackModal && (
+                <div style={{
+                    position: 'fixed',
+                    top: 0,
+                    left: 0,
+                    right: 0,
+                    bottom: 0,
+                    backgroundColor: 'rgba(0, 0, 0, 0.6)',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    zIndex: 1000,
+                }}>
+                    <div style={{
+                        backgroundColor: '#161b22',
+                        borderRadius: '12px',
+                        border: '1px solid #30363d',
+                        width: '100%',
+                        maxWidth: '400px',
+                        padding: '20px',
+                    }}>
+                        {/* Header */}
+                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' }}>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                                <div style={{
+                                    width: '40px',
+                                    height: '40px',
+                                    borderRadius: '50%',
+                                    backgroundColor: 'rgba(210, 153, 34, 0.2)',
+                                    display: 'flex',
+                                    alignItems: 'center',
+                                    justifyContent: 'center',
+                                }}>
+                                    <Calendar size={20} color="#d29922" />
+                                </div>
+                                <div>
+                                    <h3 style={{ fontSize: '16px', fontWeight: 600, color: '#e6edf3', margin: 0 }}>Schedule Callback</h3>
+                                    <p style={{ fontSize: '12px', color: '#8b949e', margin: 0 }}>{selectedLeadForCallback?.name}</p>
+                                </div>
+                            </div>
+                            <button
+                                onClick={() => setShowCallbackModal(false)}
+                                style={{
+                                    padding: '8px',
+                                    backgroundColor: 'transparent',
+                                    border: 'none',
+                                    cursor: 'pointer',
+                                    borderRadius: '6px',
+                                }}
+                            >
+                                <X size={20} color="#8b949e" />
+                            </button>
+                        </div>
+
+                        {/* Quick Time Buttons */}
+                        <div style={{ marginBottom: '16px' }}>
+                            <p style={{ fontSize: '12px', color: '#8b949e', marginBottom: '8px' }}>Quick Schedule:</p>
+                            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '8px' }}>
+                                {[
+                                    { label: '30 min', minutes: 30 },
+                                    { label: '1 hour', minutes: 60 },
+                                    { label: '2 hours', minutes: 120 },
+                                    { label: 'Tomorrow', minutes: 1440 },
+                                ].map((option) => (
+                                    <button
+                                        key={option.label}
+                                        type="button"
+                                        onClick={() => {
+                                            const date = new Date();
+                                            date.setMinutes(date.getMinutes() + option.minutes);
+                                            setCallbackDate(date.toISOString().split('T')[0]);
+                                            setCallbackTime(date.toTimeString().slice(0, 5));
+                                        }}
+                                        style={{
+                                            padding: '8px',
+                                            backgroundColor: '#21262d',
+                                            border: '1px solid #30363d',
+                                            borderRadius: '6px',
+                                            color: '#e6edf3',
+                                            fontSize: '11px',
+                                            cursor: 'pointer',
+                                        }}
+                                    >
+                                        {option.label}
+                                    </button>
+                                ))}
+                            </div>
+                        </div>
+
+                        {/* Date Input */}
+                        <div style={{ marginBottom: '16px' }}>
+                            <label style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '12px', color: '#8b949e', marginBottom: '8px' }}>
+                                <Calendar size={14} /> Date
+                            </label>
+                            <input
+                                type="date"
+                                value={callbackDate}
+                                onChange={(e) => setCallbackDate(e.target.value)}
+                                min={new Date().toISOString().split('T')[0]}
+                                style={{
+                                    width: '100%',
+                                    padding: '12px',
+                                    backgroundColor: '#0d1117',
+                                    border: '1px solid #30363d',
+                                    borderRadius: '6px',
+                                    color: '#e6edf3',
+                                    fontSize: '14px',
+                                }}
+                            />
+                        </div>
+
+                        {/* Time Input */}
+                        <div style={{ marginBottom: '16px' }}>
+                            <label style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '12px', color: '#8b949e', marginBottom: '8px' }}>
+                                <Clock size={14} /> Time
+                            </label>
+                            <input
+                                type="time"
+                                value={callbackTime}
+                                onChange={(e) => setCallbackTime(e.target.value)}
+                                style={{
+                                    width: '100%',
+                                    padding: '12px',
+                                    backgroundColor: '#0d1117',
+                                    border: '1px solid #30363d',
+                                    borderRadius: '6px',
+                                    color: '#e6edf3',
+                                    fontSize: '14px',
+                                }}
+                            />
+                        </div>
+
+                        {/* Notes */}
+                        <div style={{ marginBottom: '20px' }}>
+                            <label style={{ fontSize: '12px', color: '#8b949e', marginBottom: '8px', display: 'block' }}>Notes (Optional)</label>
+                            <textarea
+                                value={callbackNotes}
+                                onChange={(e) => setCallbackNotes(e.target.value)}
+                                placeholder="Add notes for this callback..."
+                                rows={3}
+                                style={{
+                                    width: '100%',
+                                    padding: '12px',
+                                    backgroundColor: '#0d1117',
+                                    border: '1px solid #30363d',
+                                    borderRadius: '6px',
+                                    color: '#e6edf3',
+                                    fontSize: '13px',
+                                    resize: 'none',
+                                }}
+                            />
+                        </div>
+
+                        {/* Preview */}
+                        {callbackDate && callbackTime && (
+                            <div style={{
+                                marginBottom: '20px',
+                                padding: '12px',
+                                backgroundColor: 'rgba(210, 153, 34, 0.1)',
+                                border: '1px solid rgba(210, 153, 34, 0.3)',
+                                borderRadius: '8px',
+                            }}>
+                                <p style={{ fontSize: '13px', color: '#d29922' }}>
+                                    📅 Callback scheduled for:{' '}
+                                    <span style={{ fontWeight: 600 }}>
+                                        {new Date(`${callbackDate}T${callbackTime}`).toLocaleString('en-US', {
+                                            weekday: 'short',
+                                            month: 'short',
+                                            day: 'numeric',
+                                            hour: '2-digit',
+                                            minute: '2-digit'
+                                        })}
+                                    </span>
+                                </p>
+                            </div>
+                        )}
+
+                        {/* Actions */}
+                        <div style={{ display: 'flex', gap: '12px' }}>
+                            <button
+                                onClick={() => setShowCallbackModal(false)}
+                                style={{
+                                    flex: 1,
+                                    padding: '12px',
+                                    backgroundColor: '#21262d',
+                                    border: '1px solid #30363d',
+                                    borderRadius: '6px',
+                                    color: '#e6edf3',
+                                    cursor: 'pointer',
+                                }}
+                            >
+                                Cancel
+                            </button>
+                            <button
+                                onClick={scheduleCallback}
+                                disabled={!callbackDate || !callbackTime}
+                                style={{
+                                    flex: 1,
+                                    padding: '12px',
+                                    backgroundColor: callbackDate && callbackTime ? '#9e6a03' : '#21262d',
+                                    border: 'none',
+                                    borderRadius: '6px',
+                                    color: 'white',
+                                    fontWeight: 600,
+                                    cursor: callbackDate && callbackTime ? 'pointer' : 'not-allowed',
+                                    display: 'flex',
+                                    alignItems: 'center',
+                                    justifyContent: 'center',
+                                    gap: '8px',
+                                }}
+                            >
+                                <Calendar size={16} /> Schedule
                             </button>
                         </div>
                     </div>

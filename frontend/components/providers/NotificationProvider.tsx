@@ -1,25 +1,42 @@
 'use client';
 
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useRef, useState, ReactNode } from 'react';
 import { toast } from 'sonner';
 import { Bell, Phone } from 'lucide-react';
 
 interface NotificationProviderProps {
-    children: React.ReactNode;
+    children: ReactNode;
     agentId?: number;
 }
 
-export function NotificationProvider({ children, agentId }: NotificationProviderProps) {
+export function NotificationProvider({ children, agentId: propAgentId }: NotificationProviderProps) {
     const ws = useRef<WebSocket | null>(null);
     const [isConnected, setIsConnected] = useState(false);
+    const [effectiveAgentId, setEffectiveAgentId] = useState<number | null>(propAgentId || null);
     const reconnectTimeout = useRef<NodeJS.Timeout>();
+    const reconnectAttempts = useRef(0);
+    const maxReconnectAttempts = 10;
 
+    // Get agentId from localStorage on mount
     useEffect(() => {
-        if (!agentId) return;
+        if (!propAgentId) {
+            const storedUserId = localStorage.getItem('user_id') || localStorage.getItem('userId');
+            if (storedUserId) {
+                setEffectiveAgentId(parseInt(storedUserId, 10));
+            } else {
+                // Default to 1 for development
+                setEffectiveAgentId(1);
+            }
+        }
+    }, [propAgentId]);
+
+    // WebSocket connection effect
+    useEffect(() => {
+        if (!effectiveAgentId) return;
 
         const connectWebSocket = () => {
             try {
-                const wsUrl = `ws://localhost:8000/ws/notifications/${agentId}`;
+                const wsUrl = `ws://localhost:8000/ws/notifications/${effectiveAgentId}`;
                 console.log('🔌 Connecting to WebSocket:', wsUrl);
 
                 ws.current = new WebSocket(wsUrl);
@@ -27,6 +44,7 @@ export function NotificationProvider({ children, agentId }: NotificationProvider
                 ws.current.onopen = () => {
                     console.log('✅ WebSocket connected');
                     setIsConnected(true);
+                    reconnectAttempts.current = 0;
                 };
 
                 ws.current.onmessage = (event) => {
@@ -42,13 +60,16 @@ export function NotificationProvider({ children, agentId }: NotificationProvider
                             <div className="flex items-start gap-3">
                                 <Bell className="w-5 h-5 text-blue-400 mt-0.5" />
                                 <div>
-                                    <p className="font-semibold">📞 Time to Call!</p>
-                                    <p className="text-sm text-gray-400">{data.lead_name}</p>
-                                    <p className="text-xs text-gray-500 mt-1">{data.lead_phone}</p>
+                                    <p className="font-semibold">{data.urgency === 'high' ? '⚠️ OVERDUE CALLBACK!' : '📞 Time to Call!'}</p>
+                                    <p className="text-sm text-gray-200">{data.lead_name}</p>
+                                    <p className="text-xs text-gray-400 mt-1">{data.lead_phone}</p>
+                                    {data.callback_notes && (
+                                        <p className="text-xs text-gray-500 mt-1">📝 {data.callback_notes}</p>
+                                    )}
                                 </div>
                             </div>,
                             {
-                                duration: 10000,
+                                duration: 15000,
                                 action: {
                                     label: 'Call Now',
                                     onClick: () => {
@@ -77,11 +98,15 @@ export function NotificationProvider({ children, agentId }: NotificationProvider
                     console.log('🔌 WebSocket disconnected');
                     setIsConnected(false);
 
-                    // Attempt to reconnect after 5 seconds
-                    reconnectTimeout.current = setTimeout(() => {
-                        console.log('🔄 Attempting to reconnect...');
-                        connectWebSocket();
-                    }, 5000);
+                    // Attempt to reconnect with exponential backoff
+                    if (reconnectAttempts.current < maxReconnectAttempts) {
+                        const delay = Math.min(1000 * Math.pow(2, reconnectAttempts.current), 30000);
+                        reconnectTimeout.current = setTimeout(() => {
+                            console.log(`🔄 Reconnecting... (attempt ${reconnectAttempts.current + 1})`);
+                            reconnectAttempts.current++;
+                            connectWebSocket();
+                        }, delay);
+                    }
                 };
 
             } catch (error) {
@@ -102,12 +127,12 @@ export function NotificationProvider({ children, agentId }: NotificationProvider
                 ws.current.close();
             }
         };
-    }, [agentId]);
+    }, [effectiveAgentId]);
 
     const playNotificationSound = () => {
         try {
             const audio = new Audio('/sounds/notification.mp3');
-            audio.volume = 0.5;
+            audio.volume = 0.7;
             audio.play().catch(err => {
                 console.log('Could not play sound:', err);
             });
@@ -121,15 +146,15 @@ export function NotificationProvider({ children, agentId }: NotificationProvider
             {children}
 
             {/* Connection Status Indicator */}
-            {agentId && (
+            {effectiveAgentId && (
                 <div className="fixed bottom-4 right-4 z-50">
                     <div className={`
-            px-3 py-2 rounded-full text-xs font-medium flex items-center gap-2
-            ${isConnected
+                        px-3 py-2 rounded-full text-xs font-medium flex items-center gap-2
+                        ${isConnected
                             ? 'bg-green-500/20 text-green-400 border border-green-500/30'
                             : 'bg-red-500/20 text-red-400 border border-red-500/30'
                         }
-          `}>
+                    `}>
                         <div className={`w-2 h-2 rounded-full ${isConnected ? 'bg-green-400 animate-pulse' : 'bg-red-400'}`} />
                         {isConnected ? 'Live Alerts On' : 'Reconnecting...'}
                     </div>

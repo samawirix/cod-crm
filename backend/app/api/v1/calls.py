@@ -368,7 +368,8 @@ async def get_scheduled_callbacks(
                 "product_interest": getattr(lead, 'product_interest', '') or "",
                 "status": get_status_str(lead.status),
                 "source": source_str,
-                "callback_date": lead.callback_date.isoformat() if hasattr(lead, 'callback_date') and lead.callback_date else None,
+                "callback_time": lead.callback_time.isoformat() if hasattr(lead, 'callback_time') and lead.callback_time else None,
+                "callback_notes": getattr(lead, 'callback_notes', '') or "",
                 "notes": getattr(lead, 'notes', '') or "",
                 "call_count": getattr(lead, 'call_count', 0) or 0,
                 "created_at": lead.created_at.isoformat() if lead.created_at else ""

@@ -102,7 +102,10 @@ async def send_callback_alert(agent_id: int, lead_data: dict):
         "lead_id": lead_data.get("id"),
         "lead_name": lead_data.get("name"),
         "lead_phone": lead_data.get("phone"),
-        "message": f"Time to call {lead_data.get('name')}!",
+        "callback_time": lead_data.get("callback_time"),
+        "callback_notes": lead_data.get("callback_notes"),
+        "urgency": lead_data.get("urgency", "normal"),
+        "message": f"📞 Time to call {lead_data.get('name')}!",
         "timestamp": datetime.now().isoformat()
     })
 
@@ -117,3 +120,78 @@ async def broadcast_new_lead(lead_data: dict):
         "message": "New lead added!",
         "timestamp": datetime.now().isoformat()
     })
+
+
+# Background task for callback notifications
+async def check_callbacks_background_task():
+    """
+    Background task that checks for due callbacks every 30 seconds
+    and sends notifications to connected agents.
+    """
+    from app.core.database import SessionLocal
+    from app.models.lead import Lead
+    from datetime import timedelta
+    
+    print("🔔 Starting callback notification background task...")
+    
+    while True:
+        try:
+            db = SessionLocal()
+            try:
+                now = datetime.utcnow()
+                window = timedelta(minutes=5)  # Check 5 minutes ahead
+                
+                # Find callbacks due in the next 5 minutes that haven't been notified
+                leads_to_notify = db.query(Lead).filter(
+                    Lead.callback_time != None,
+                    Lead.callback_time <= now + window,
+                    Lead.callback_completed == False,
+                    Lead.callback_reminder_sent == False
+                ).all()
+                
+                for lead in leads_to_notify:
+                    is_overdue = lead.callback_time <= now
+                    
+                    lead_data = {
+                        "id": lead.id,
+                        "name": f"{lead.first_name} {lead.last_name or ''}".strip(),
+                        "phone": lead.phone,
+                        "callback_time": lead.callback_time.isoformat() if lead.callback_time else None,
+                        "callback_notes": lead.callback_notes or "",
+                        "urgency": "high" if is_overdue else "normal"
+                    }
+                    
+                    # Send to assigned agent or broadcast to all
+                    if lead.callback_assigned_to:
+                        await send_callback_alert(lead.callback_assigned_to, lead_data)
+                    else:
+                        # Broadcast to all connected agents
+                        await manager.broadcast({
+                            "type": "CALLBACK_ALERT",
+                            **lead_data,
+                            "message": f"📞 {'OVERDUE: ' if is_overdue else ''}Call {lead_data['name']} now!",
+                            "timestamp": now.isoformat()
+                        })
+                    
+                    # Mark as notified
+                    lead.callback_reminder_sent = True
+                    db.commit()
+                    
+                    print(f"📢 Sent callback notification for lead {lead.id} ({lead_data['name']})")
+                    
+            finally:
+                db.close()
+                
+        except Exception as e:
+            print(f"Error in callback notification task: {e}")
+            import traceback
+            traceback.print_exc()
+        
+        # Check every 30 seconds
+        await asyncio.sleep(30)
+
+
+def start_callback_checker():
+    """Start the background callback checker task"""
+    asyncio.create_task(check_callbacks_background_task())
+

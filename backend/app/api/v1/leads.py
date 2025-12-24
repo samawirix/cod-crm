@@ -5,7 +5,7 @@ Simple Leads API - CRUD Operations
 from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy.orm import Session
 from typing import List, Optional
-from datetime import datetime
+from datetime import datetime, timedelta
 
 from app.core.database import get_db
 from app.models.lead import Lead, LeadSource, LeadStatus
@@ -673,4 +673,113 @@ def bulk_delete_leads(
         db.rollback()
         print(f"❌ Bulk delete error: {str(e)}")
         raise HTTPException(status_code=500, detail=f"Bulk delete failed: {str(e)}")
+
+
+# ============== CALLBACK SCHEDULING ==============
+
+class CallbackScheduleRequest(BaseModel):
+    """Schema for scheduling a callback"""
+    callback_time: datetime
+    callback_notes: Optional[str] = None
+    status: str = "CALLBACK"
+
+
+@router.post("/{lead_id}/schedule-callback")
+def schedule_callback(
+    lead_id: int,
+    request: CallbackScheduleRequest,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    """Schedule a callback for a lead"""
+    print(f"📅 Scheduling callback for lead {lead_id}")
+    
+    lead = db.query(Lead).filter(Lead.id == lead_id).first()
+    if not lead:
+        raise HTTPException(status_code=404, detail="Lead not found")
+    
+    # Update lead with callback info
+    lead.callback_time = request.callback_time
+    lead.callback_notes = request.callback_notes
+    lead.callback_assigned_to = current_user.id
+    lead.callback_completed = False
+    lead.callback_reminder_sent = False
+    lead.status = LeadStatus.CALLBACK
+    lead.updated_at = datetime.utcnow()
+    
+    try:
+        db.commit()
+        db.refresh(lead)
+        
+        print(f"✅ Callback scheduled for lead {lead_id} at {lead.callback_time}")
+        
+        return {
+            "message": "Callback scheduled successfully",
+            "lead_id": lead.id,
+            "callback_time": lead.callback_time.isoformat() if lead.callback_time else None,
+            "callback_notes": lead.callback_notes
+        }
+        
+    except Exception as e:
+        db.rollback()
+        print(f"❌ Error scheduling callback: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Error scheduling callback: {str(e)}")
+
+
+@router.get("/callbacks/due")
+def get_due_callbacks(
+    minutes_ahead: int = 30,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    """Get callbacks that are due within specified minutes"""
+    print(f"📞 Getting due callbacks (window: {minutes_ahead} minutes)")
+    
+    now = datetime.utcnow()
+    window_end = now + timedelta(minutes=minutes_ahead)
+    
+    # Get overdue callbacks (past due)
+    overdue = db.query(Lead).filter(
+        Lead.status == LeadStatus.CALLBACK,
+        Lead.callback_time != None,
+        Lead.callback_time <= now,
+        Lead.callback_completed == False
+    ).all()
+    
+    # Get upcoming callbacks (within window)
+    upcoming = db.query(Lead).filter(
+        Lead.status == LeadStatus.CALLBACK,
+        Lead.callback_time != None,
+        Lead.callback_time > now,
+        Lead.callback_time <= window_end,
+        Lead.callback_completed == False
+    ).all()
+    
+    print(f"✅ Found {len(overdue)} overdue, {len(upcoming)} upcoming callbacks")
+    
+    return {
+        "overdue": [
+            {
+                "id": l.id,
+                "name": l.full_name,
+                "phone": l.phone,
+                "callback_time": l.callback_time.isoformat() if l.callback_time else None,
+                "callback_notes": l.callback_notes,
+                "minutes_overdue": int((now - l.callback_time).total_seconds() / 60) if l.callback_time else 0
+            }
+            for l in overdue
+        ],
+        "upcoming": [
+            {
+                "id": l.id,
+                "name": l.full_name,
+                "phone": l.phone,
+                "callback_time": l.callback_time.isoformat() if l.callback_time else None,
+                "callback_notes": l.callback_notes,
+                "minutes_until": int((l.callback_time - now).total_seconds() / 60) if l.callback_time else 0
+            }
+            for l in upcoming
+        ]
+    }
+
 

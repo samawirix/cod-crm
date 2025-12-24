@@ -143,12 +143,27 @@ class ProductService:
         }
     
     def get_product_by_id(self, product_id: int) -> Optional[Product]:
-        """Get product by ID"""
-        product = self.db.query(Product).filter(Product.id == product_id).first()
-        if product and product.category:
-            product.category_name = product.category.name
-        elif product:
-            product.category_name = None
+        """Get product by ID with variants eagerly loaded"""
+        product = self.db.query(Product)\
+            .options(joinedload(Product.product_variants))\
+            .filter(Product.id == product_id)\
+            .first()
+        
+        if product:
+            # Set category name
+            if product.category:
+                product.category_name = product.category.name
+            else:
+                product.category_name = None
+            
+            # Calculate total stock from variants if product has variants
+            if product.product_variants and len(product.product_variants) > 0:
+                total_variant_stock = sum(v.stock_quantity for v in product.product_variants if v.is_active)
+                product.stock_quantity = total_variant_stock
+                product.variant_count = len([v for v in product.product_variants if v.is_active])
+            else:
+                product.variant_count = 0
+        
         return product
     
     def get_product_by_sku(self, sku: str) -> Optional[Product]:
