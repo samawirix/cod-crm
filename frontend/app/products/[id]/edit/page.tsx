@@ -5,6 +5,7 @@ import { useRouter, useParams } from 'next/navigation';
 import {
     ArrowLeft, Save, X, Plus, Package, DollarSign, Tag, Image as ImageIcon, Trash2, Upload, Check, TrendingUp
 } from 'lucide-react';
+import { VariantOptionEditor, VariantList } from '@/components/products';
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000';
 
@@ -36,7 +37,8 @@ interface Variant {
     is_active: boolean;
 }
 
-interface VariationOption {
+interface VariantOption {
+    id: string;
     type: string;
     values: string[];
 }
@@ -77,10 +79,8 @@ export default function EditProductPage() {
     const [imagePreviewError, setImagePreviewError] = useState(false);
     const fileInputRef = useRef<HTMLInputElement>(null);
 
-    // New variants states
-    const [newVariationType, setNewVariationType] = useState('');
-    const [newVariationValues, setNewVariationValues] = useState('');
-    const [pendingVariationOptions, setPendingVariationOptions] = useState<VariationOption[]>([]);
+    // New variants states - updated for new components
+    const [pendingVariantOptions, setPendingVariantOptions] = useState<VariantOption[]>([]);
     const [newGeneratedVariants, setNewGeneratedVariants] = useState<GeneratedVariant[]>([]);
 
     const [loading, setLoading] = useState(true);
@@ -160,30 +160,13 @@ export default function EditProductPage() {
         }
     };
 
-    // Add new variation type
-    const handleAddVariationType = () => {
-        if (!newVariationType.trim() || !newVariationValues.trim()) return;
+    // Generate new variants when options change
+    useEffect(() => {
+        generateNewVariantsFromOptions(pendingVariantOptions);
+    }, [pendingVariantOptions, sku]);
 
-        const values = newVariationValues.split(',').map(v => v.trim()).filter(v => v);
-        if (values.length === 0) return;
-
-        const newOptions = [...pendingVariationOptions, { type: newVariationType.trim(), values }];
-        setPendingVariationOptions(newOptions);
-        setNewVariationType('');
-        setNewVariationValues('');
-        generateNewVariants(newOptions);
-    };
-
-    // Remove pending variation
-    const removePendingVariation = (index: number) => {
-        const updated = pendingVariationOptions.filter((_, i) => i !== index);
-        setPendingVariationOptions(updated);
-        generateNewVariants(updated);
-    };
-
-    // Generate new variants from pending options
-    const generateNewVariants = (options: VariationOption[]) => {
-        if (options.length === 0) {
+    const generateNewVariantsFromOptions = (options: VariantOption[]) => {
+        if (options.length === 0 || options.some(o => o.values.length === 0)) {
             setNewGeneratedVariants([]);
             return;
         }
@@ -215,6 +198,8 @@ export default function EditProductPage() {
 
         setNewGeneratedVariants(newVariants);
     };
+
+
 
     // Update new variant field
     const updateNewVariant = (index: number, field: string, value: any) => {
@@ -697,119 +682,38 @@ export default function EditProductPage() {
                                 </div>
                             )}
 
-                            {/* Add New Variants Section */}
-                            <div className="bg-gray-800 rounded-lg p-4 sm:p-6 border border-gray-700">
-                                <div className="flex items-center gap-2 mb-4">
+                            {/* Add New Variants - Shopify Style */}
+                            <div className="bg-gray-800 rounded-xl p-4 sm:p-6 border border-gray-700">
+                                <div className="flex items-center gap-2 mb-6">
                                     <Plus className="w-5 h-5 text-green-400" />
-                                    <h2 className="text-lg font-semibold text-white">Add New Variants</h2>
+                                    <h2 className="text-lg font-semibold text-white">Add New Options</h2>
                                     <span className="text-sm text-gray-400">(Optional)</span>
                                 </div>
 
-                                <p className="text-sm text-gray-400 mb-4">
-                                    Add new variation types to create additional variants for this product.
+                                <p className="text-sm text-gray-400 mb-6">
+                                    Add new options like Color or Size to create additional variants for this product.
                                 </p>
 
-                                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-4">
-                                    <div>
-                                        <label className="block text-sm font-medium text-gray-300 mb-2">Variation Type</label>
-                                        <input
-                                            type="text"
-                                            value={newVariationType}
-                                            onChange={(e) => setNewVariationType(e.target.value)}
-                                            className="w-full bg-gray-900 border border-gray-600 rounded-lg px-4 py-3 text-white"
-                                            placeholder="e.g., Color, Size, Material"
-                                        />
-                                    </div>
-                                    <div>
-                                        <label className="block text-sm font-medium text-gray-300 mb-2">Values (comma-separated)</label>
-                                        <input
-                                            type="text"
-                                            value={newVariationValues}
-                                            onChange={(e) => setNewVariationValues(e.target.value)}
-                                            className="w-full bg-gray-900 border border-gray-600 rounded-lg px-4 py-3 text-white"
-                                            placeholder="e.g., Black, White, Red"
-                                        />
-                                    </div>
-                                </div>
+                                {/* Option Editor */}
+                                <VariantOptionEditor
+                                    options={pendingVariantOptions}
+                                    onChange={setPendingVariantOptions}
+                                />
 
-                                <button
-                                    type="button"
-                                    onClick={handleAddVariationType}
-                                    className="px-4 py-2 bg-green-600 hover:bg-green-700 text-white rounded-lg transition-colors flex items-center gap-2"
-                                >
-                                    <Plus className="w-4 h-4" />
-                                    Add Variation Type
-                                </button>
-
-                                {pendingVariationOptions.length > 0 && (
-                                    <div className="mt-4 space-y-2">
-                                        <p className="text-sm font-medium text-gray-300">Pending Variation Types:</p>
-                                        {pendingVariationOptions.map((opt, idx) => (
-                                            <div key={idx} className="flex items-center justify-between p-2 bg-gray-900 rounded border border-gray-600">
-                                                <span className="text-white">{opt.type}: <span className="text-gray-400">{opt.values.join(', ')}</span></span>
-                                                <button type="button" onClick={() => removePendingVariation(idx)} className="text-red-400 hover:text-red-300">
-                                                    <X className="w-4 h-4" />
-                                                </button>
-                                            </div>
-                                        ))}
-                                    </div>
-                                )}
-
+                                {/* Generated Variants */}
                                 {newGeneratedVariants.length > 0 && (
-                                    <div className="mt-4 p-4 bg-green-500/10 border border-green-500/30 rounded-lg">
-                                        <p className="text-sm font-medium text-green-400 mb-3">
-                                            Will create {newGeneratedVariants.length} new variant(s):
-                                        </p>
-                                        <div className="space-y-2 max-h-60 overflow-y-auto">
-                                            {newGeneratedVariants.map((v, i) => (
-                                                <div key={i} className="flex flex-col sm:flex-row sm:items-center gap-2 p-3 bg-gray-900 rounded-lg border border-gray-700">
-                                                    <div className="flex items-center gap-2 flex-1 min-w-0">
-                                                        {v.color && (
-                                                            <div
-                                                                className="w-6 h-6 rounded-full border-2 border-gray-600 flex-shrink-0"
-                                                                style={{ backgroundColor: getColorCode(v.color) }}
-                                                                title={v.color}
-                                                            />
-                                                        )}
-                                                        <div className="min-w-0">
-                                                            <p className="text-sm font-medium text-white truncate">{v.variant_name}</p>
-                                                            <p className="text-xs text-gray-500">{v.sku}</p>
-                                                        </div>
-                                                    </div>
-                                                    <div className="flex items-center gap-2">
-                                                        <div className="w-24">
-                                                            <label className="text-xs text-gray-400 block mb-1">Stock</label>
-                                                            <input
-                                                                type="number"
-                                                                value={v.stock_quantity}
-                                                                onChange={(e) => updateNewVariant(i, 'stock_quantity', e.target.value)}
-                                                                className="w-full bg-gray-800 border border-gray-600 rounded px-2 py-1.5 text-sm text-white"
-                                                                placeholder="0"
-                                                            />
-                                                        </div>
-                                                        <div className="w-28">
-                                                            <label className="text-xs text-gray-400 block mb-1">Price (MAD)</label>
-                                                            <input
-                                                                type="number"
-                                                                step="0.01"
-                                                                value={v.price_override || ''}
-                                                                onChange={(e) => updateNewVariant(i, 'price_override', e.target.value)}
-                                                                placeholder={sellingPrice || 'Base'}
-                                                                className="w-full bg-gray-800 border border-gray-600 rounded px-2 py-1.5 text-sm text-white"
-                                                            />
-                                                        </div>
-                                                        <button
-                                                            type="button"
-                                                            onClick={() => removeNewVariant(i)}
-                                                            className="p-2 hover:bg-red-500/20 rounded transition-colors mt-5"
-                                                            title="Remove variant"
-                                                        >
-                                                            <Trash2 className="w-4 h-4 text-red-400" />
-                                                        </button>
-                                                    </div>
-                                                </div>
-                                            ))}
+                                    <div className="mt-6 pt-6 border-t border-gray-700">
+                                        <div className="flex items-center gap-2 mb-4">
+                                            <span className="text-sm font-medium text-green-400">
+                                                Will create {newGeneratedVariants.length} new variant(s)
+                                            </span>
                                         </div>
+                                        <VariantList
+                                            variants={newGeneratedVariants}
+                                            basePrice={parseFloat(sellingPrice) || 0}
+                                            baseSku={sku}
+                                            onChange={setNewGeneratedVariants}
+                                        />
                                     </div>
                                 )}
                             </div>
