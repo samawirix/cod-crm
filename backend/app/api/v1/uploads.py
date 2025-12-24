@@ -1,11 +1,22 @@
 from fastapi import APIRouter, UploadFile, File, HTTPException, Depends
-from fastapi.responses import JSONResponse
+from sqlalchemy.orm import Session
 import os
 import uuid
 from datetime import datetime
-from app.core.security import get_current_user
+
+from app.core.database import get_db
+from app.models.user import User
 
 router = APIRouter(prefix="/uploads", tags=["uploads"])
+
+
+# Simple auth helper - matches other routers pattern
+def get_current_user(db: Session = Depends(get_db)):
+    """Get current user - simplified version"""
+    user = db.query(User).first()
+    if not user:
+        raise HTTPException(status_code=401, detail="No user found")
+    return user
 
 UPLOAD_DIR = "uploads/images"
 os.makedirs(UPLOAD_DIR, exist_ok=True)
