@@ -17,6 +17,16 @@ class OrderCreate(BaseModel):
     delivery_charges: float = 0.0
     courier: Optional[str] = "AMANA"
     notes: Optional[str] = None
+    
+    # NEW: Logistics fields
+    utm_source: Optional[str] = None
+    utm_medium: Optional[str] = None
+    utm_campaign: Optional[str] = None
+    sales_action: Optional[str] = "normal"
+    shipping_company: Optional[str] = None
+    is_exchange: Optional[bool] = False
+    original_order_ref: Optional[str] = None
+    exchange_reason: Optional[str] = None
 
 class OrderUpdate(BaseModel):
     """Schema for updating order"""
@@ -32,6 +42,19 @@ class OrderUpdate(BaseModel):
     courier: Optional[str] = None
     courier_tracking_url: Optional[str] = None
     notes: Optional[str] = None
+    
+    # NEW: Logistics fields
+    utm_source: Optional[str] = None
+    utm_medium: Optional[str] = None
+    utm_campaign: Optional[str] = None
+    sales_action: Optional[str] = None
+    shipping_company: Optional[str] = None
+    tracking_number: Optional[str] = None
+    is_exchange: Optional[bool] = None
+    original_order_ref: Optional[str] = None
+    exchange_reason: Optional[str] = None
+    estimated_delivery_date: Optional[datetime] = None
+    actual_delivery_date: Optional[datetime] = None
 
 class OrderConfirm(BaseModel):
     """Schema for confirming an order"""
@@ -107,6 +130,18 @@ class OrderResponse(BaseModel):
     notes: Optional[str]
     created_at: datetime
     updated_at: datetime
+    
+    # NEW: Logistics fields
+    utm_source: Optional[str] = None
+    utm_medium: Optional[str] = None
+    utm_campaign: Optional[str] = None
+    sales_action: Optional[str] = None
+    shipping_company: Optional[str] = None
+    is_exchange: bool = False
+    original_order_ref: Optional[str] = None
+    exchange_reason: Optional[str] = None
+    estimated_delivery_date: Optional[datetime] = None
+    actual_delivery_date: Optional[datetime] = None
 
     class Config:
         from_attributes = True

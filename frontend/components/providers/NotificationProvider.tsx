@@ -1,8 +1,58 @@
 'use client';
 
-import { useEffect, useRef, useState, ReactNode } from 'react';
+import { createContext, useContext, useEffect, useRef, useState, ReactNode } from 'react';
 import { toast } from 'sonner';
 import { Bell, Phone } from 'lucide-react';
+
+// ═══════════════════════════════════════════════════════════
+// CONTEXT TYPES
+// ═══════════════════════════════════════════════════════════
+
+interface Notification {
+    id: string;
+    type: string;
+    lead_id: number;
+    lead_name: string;
+    lead_phone: string;
+    message: string;
+    urgency: 'high' | 'normal';
+    timestamp: Date;
+}
+
+interface NotificationContextType {
+    notifications: Notification[];
+    soundEnabled: boolean;
+    toggleSound: () => void;
+    clearNotification: (id: string) => void;
+    clearAll: () => void;
+    isConnected: boolean;
+}
+
+const NotificationContext = createContext<NotificationContextType | null>(null);
+
+// ═══════════════════════════════════════════════════════════
+// HOOK
+// ═══════════════════════════════════════════════════════════
+
+export function useNotifications() {
+    const context = useContext(NotificationContext);
+    if (!context) {
+        // Return default values if not wrapped in provider
+        return {
+            notifications: [],
+            soundEnabled: true,
+            toggleSound: () => { },
+            clearNotification: () => { },
+            clearAll: () => { },
+            isConnected: false
+        };
+    }
+    return context;
+}
+
+// ═══════════════════════════════════════════════════════════
+// PROVIDER
+// ═══════════════════════════════════════════════════════════
 
 interface NotificationProviderProps {
     children: ReactNode;
@@ -12,8 +62,10 @@ interface NotificationProviderProps {
 export function NotificationProvider({ children, agentId: propAgentId }: NotificationProviderProps) {
     const ws = useRef<WebSocket | null>(null);
     const [isConnected, setIsConnected] = useState(false);
+    const [soundEnabled, setSoundEnabled] = useState(true);
+    const [notifications, setNotifications] = useState<Notification[]>([]);
     const [effectiveAgentId, setEffectiveAgentId] = useState<number | null>(propAgentId || null);
-    const reconnectTimeout = useRef<NodeJS.Timeout>();
+    const reconnectTimeout = useRef<NodeJS.Timeout | undefined>(undefined);
     const reconnectAttempts = useRef(0);
     const maxReconnectAttempts = 10;
 
@@ -28,7 +80,45 @@ export function NotificationProvider({ children, agentId: propAgentId }: Notific
                 setEffectiveAgentId(1);
             }
         }
+
+        // Load sound preference from localStorage
+        const savedSound = localStorage.getItem('notificationSound');
+        if (savedSound !== null) {
+            setSoundEnabled(savedSound === 'true');
+        }
     }, [propAgentId]);
+
+    // Play notification sound
+    const playNotificationSound = () => {
+        if (!soundEnabled) return;
+
+        try {
+            const audio = new Audio('/sounds/notification.mp3');
+            audio.volume = 0.7;
+            audio.play().catch(err => {
+                console.log('Could not play sound:', err);
+            });
+        } catch (error) {
+            console.log('Audio not available:', error);
+        }
+    };
+
+    // Toggle sound and save preference
+    const toggleSound = () => {
+        const newValue = !soundEnabled;
+        setSoundEnabled(newValue);
+        localStorage.setItem('notificationSound', String(newValue));
+    };
+
+    // Clear a notification
+    const clearNotification = (id: string) => {
+        setNotifications(prev => prev.filter(n => n.id !== id));
+    };
+
+    // Clear all notifications
+    const clearAll = () => {
+        setNotifications([]);
+    };
 
     // WebSocket connection effect
     useEffect(() => {
@@ -52,6 +142,20 @@ export function NotificationProvider({ children, agentId: propAgentId }: Notific
                     console.log('📨 WebSocket message:', data);
 
                     if (data.type === 'CALLBACK_ALERT') {
+                        // Add to notifications list
+                        const notification: Notification = {
+                            id: `${data.lead_id}-${Date.now()}`,
+                            type: data.type,
+                            lead_id: data.lead_id || data.id,
+                            lead_name: data.lead_name || data.name,
+                            lead_phone: data.lead_phone || data.phone,
+                            message: data.message,
+                            urgency: data.urgency || 'normal',
+                            timestamp: new Date()
+                        };
+
+                        setNotifications(prev => [notification, ...prev].slice(0, 10));
+
                         // Play notification sound
                         playNotificationSound();
 
@@ -61,8 +165,8 @@ export function NotificationProvider({ children, agentId: propAgentId }: Notific
                                 <Bell className="w-5 h-5 text-blue-400 mt-0.5" />
                                 <div>
                                     <p className="font-semibold">{data.urgency === 'high' ? '⚠️ OVERDUE CALLBACK!' : '📞 Time to Call!'}</p>
-                                    <p className="text-sm text-gray-200">{data.lead_name}</p>
-                                    <p className="text-xs text-gray-400 mt-1">{data.lead_phone}</p>
+                                    <p className="text-sm text-gray-200">{data.lead_name || data.name}</p>
+                                    <p className="text-xs text-gray-400 mt-1">{data.lead_phone || data.phone}</p>
                                     {data.callback_notes && (
                                         <p className="text-xs text-gray-500 mt-1">📝 {data.callback_notes}</p>
                                     )}
@@ -73,11 +177,20 @@ export function NotificationProvider({ children, agentId: propAgentId }: Notific
                                 action: {
                                     label: 'Call Now',
                                     onClick: () => {
-                                        window.location.href = `/calls?lead=${data.lead_id}`;
+                                        window.location.href = `/calls?lead=${data.lead_id || data.id}`;
                                     }
                                 }
                             }
                         );
+
+                        // Show browser notification if permitted
+                        if (typeof window !== 'undefined' && 'Notification' in window && Notification.permission === 'granted') {
+                            new Notification('📞 Callback Reminder', {
+                                body: `Call ${data.lead_name || data.name} now!`,
+                                icon: '/icon.png',
+                                tag: `callback-${data.lead_id || data.id}`
+                            });
+                        }
                     }
 
                     if (data.type === 'CONNECTION_SUCCESS') {
@@ -118,6 +231,11 @@ export function NotificationProvider({ children, agentId: propAgentId }: Notific
         // Initial connection
         connectWebSocket();
 
+        // Request browser notification permission
+        if (typeof window !== 'undefined' && 'Notification' in window && Notification.permission === 'default') {
+            Notification.requestPermission();
+        }
+
         // Cleanup
         return () => {
             if (reconnectTimeout.current) {
@@ -127,22 +245,19 @@ export function NotificationProvider({ children, agentId: propAgentId }: Notific
                 ws.current.close();
             }
         };
-    }, [effectiveAgentId]);
+    }, [effectiveAgentId, soundEnabled]);
 
-    const playNotificationSound = () => {
-        try {
-            const audio = new Audio('/sounds/notification.mp3');
-            audio.volume = 0.7;
-            audio.play().catch(err => {
-                console.log('Could not play sound:', err);
-            });
-        } catch (error) {
-            console.log('Audio not available:', error);
-        }
+    const contextValue: NotificationContextType = {
+        notifications,
+        soundEnabled,
+        toggleSound,
+        clearNotification,
+        clearAll,
+        isConnected
     };
 
     return (
-        <>
+        <NotificationContext.Provider value={contextValue}>
             {children}
 
             {/* Connection Status Indicator */}
@@ -160,6 +275,6 @@ export function NotificationProvider({ children, agentId: propAgentId }: Notific
                     </div>
                 </div>
             )}
-        </>
+        </NotificationContext.Provider>
     );
 }

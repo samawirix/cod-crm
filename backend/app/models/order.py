@@ -35,6 +35,46 @@ class CourierCompany(str, enum.Enum):
     ARAMEX = "ARAMEX"
     OTHER = "OTHER"
 
+
+# ═══════════════════════════════════════════════════════════════
+# NEW ENUMS FOR LOGISTICS & COMMERCIAL DATA
+# ═══════════════════════════════════════════════════════════════
+
+class UTMSource(str, enum.Enum):
+    """Traffic source tracking"""
+    FACEBOOK = "facebook"
+    TIKTOK = "tiktok"
+    GOOGLE = "google"
+    INSTAGRAM = "instagram"
+    YOUTUBE = "youtube"
+    SNAPCHAT = "snapchat"
+    WHATSAPP = "whatsapp"
+    ORGANIC = "organic"
+    REFERRAL = "referral"
+    OTHER = "other"
+
+
+class SalesAction(str, enum.Enum):
+    """Type of sales action"""
+    NORMAL = "normal"
+    UPSELL = "upsell"
+    CROSS_SELL = "cross_sell"
+    REPLACEMENT = "replacement"
+    EXCHANGE = "exchange"
+
+
+class ShippingCompany(str, enum.Enum):
+    """Shipping company options for Morocco"""
+    AMANA = "amana"
+    COLIS_EXPRESS = "colis_express"
+    TAWSSIL = "tawssil"
+    HORA = "hora"
+    YALITINE = "yalitine"
+    JAXI = "jaxi"
+    CHRONO_DIALI = "chrono_diali"
+    PRIVATE = "private"
+    OTHER = "other"
+
 class Order(Base):
     """Order model for COD e-commerce"""
     __tablename__ = "orders"
@@ -99,6 +139,32 @@ class Order(Base):
     return_reason = Column(Text, nullable=True)
     returned_at = Column(DateTime, nullable=True)
     
+    # ═══════════════════════════════════════════════════════════
+    # NEW: LOGISTICS & COMMERCIAL DATA FIELDS
+    # ═══════════════════════════════════════════════════════════
+    
+    # UTM / Traffic Source Tracking
+    utm_source = Column(String(50), nullable=True)  # facebook, tiktok, google, etc.
+    utm_medium = Column(String(50), nullable=True)  # cpc, social, organic
+    utm_campaign = Column(String(100), nullable=True)  # campaign name
+    
+    # Sales Action Type
+    sales_action = Column(String(20), default="normal")  # normal, upsell, cross_sell, replacement, exchange
+    
+    # Shipping Company (additional tracking)
+    shipping_company = Column(String(50), nullable=True)  # normalized shipping company name
+    shipping_company_id = Column(Integer, ForeignKey('couriers.id'), nullable=True)
+    
+    # Exchange/Return Tracking
+    is_exchange = Column(Boolean, default=False)
+    original_order_id = Column(Integer, ForeignKey('orders.id'), nullable=True)
+    original_order_ref = Column(String(50), nullable=True)  # Original order number for exchange
+    exchange_reason = Column(String(200), nullable=True)
+    
+    # Additional Logistics
+    estimated_delivery_date = Column(DateTime, nullable=True)
+    actual_delivery_date = Column(DateTime, nullable=True)
+
     # Notes and comments
     notes = Column(Text, nullable=True)
     internal_notes = Column(Text, nullable=True)

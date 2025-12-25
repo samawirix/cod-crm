@@ -141,6 +141,10 @@ async def check_callbacks_background_task():
                 now = datetime.utcnow()
                 window = timedelta(minutes=5)  # Check 5 minutes ahead
                 
+                # DEBUG: Log all leads with callback_time
+                all_with_callback = db.query(Lead).filter(Lead.callback_time != None).count()
+                print(f"📊 DEBUG: {all_with_callback} leads have callback_time set")
+                
                 # Find callbacks due in the next 5 minutes that haven't been notified
                 leads_to_notify = db.query(Lead).filter(
                     Lead.callback_time != None,
@@ -148,6 +152,8 @@ async def check_callbacks_background_task():
                     Lead.callback_completed == False,
                     Lead.callback_reminder_sent == False
                 ).all()
+                
+                print(f"📊 DEBUG: {len(leads_to_notify)} leads need notification (due within 5 min, not sent yet)")
                 
                 for lead in leads_to_notify:
                     is_overdue = lead.callback_time <= now

@@ -783,3 +783,30 @@ def get_due_callbacks(
     }
 
 
+@router.post("/{lead_id}/reset-callback-reminder")
+def reset_callback_reminder(
+    lead_id: int,
+    db: Session = Depends(get_db)
+):
+    """Reset callback reminder for testing notifications"""
+    lead = db.query(Lead).filter(Lead.id == lead_id).first()
+    if not lead:
+        raise HTTPException(status_code=404, detail="Lead not found")
+    
+    # Reset the reminder flags
+    lead.callback_reminder_sent = False
+    lead.callback_completed = False
+    
+    # Set callback time to NOW (so it triggers immediately)
+    lead.callback_time = datetime.utcnow()
+    lead.status = LeadStatus.CALLBACK
+    
+    db.commit()
+    db.refresh(lead)
+    
+    return {
+        "message": f"Callback reminder reset for lead {lead_id}",
+        "lead_name": f"{lead.first_name} {lead.last_name}",
+        "callback_time": lead.callback_time.isoformat(),
+        "callback_reminder_sent": lead.callback_reminder_sent
+    }
