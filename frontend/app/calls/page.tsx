@@ -2,7 +2,6 @@
 
 import React, { useState, useEffect } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { Phone } from 'lucide-react';
 
 // Components
 import GlobalKpiHeader from './components/GlobalKpiHeader';
@@ -376,14 +375,7 @@ export default function CallCenterPage() {
                             confirmDisabled={orderItems.length === 0}
                         />
                     </ActiveCallPanel>
-                ) : (
-                    <div className="flex-1 flex items-center justify-center bg-[#0d1117]">
-                        <div className="text-center text-[#8b949e]">
-                            <Phone className="w-16 h-16 mx-auto mb-4 opacity-50" />
-                            <p className="text-lg">Select a lead to start calling</p>
-                        </div>
-                    </div>
-                )}
+                ) : null}
             </div>
 
             {/* Modals */}
