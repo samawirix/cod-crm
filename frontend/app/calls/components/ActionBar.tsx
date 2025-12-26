@@ -1,23 +1,17 @@
 'use client';
 
 import React, { useState } from 'react';
-import { CheckCircle, Calendar, PhoneMissed, XCircle, PhoneOff, SkipForward, ArrowLeft } from 'lucide-react';
+import { Check, Calendar, PhoneOff, X, Ban, SkipForward, ChevronLeft } from 'lucide-react';
 
-// ═══════════════════════════════════════════════════════════════
-// CANCEL REASONS
-// ═══════════════════════════════════════════════════════════════
 const CANCEL_REASONS = [
     'Price too high',
     'Changed mind',
     'Found elsewhere',
     'Not interested',
-    'Duplicate order',
+    'Duplicate',
     'Other',
 ];
 
-// ═══════════════════════════════════════════════════════════════
-// TYPES
-// ═══════════════════════════════════════════════════════════════
 interface ActionBarProps {
     onConfirm: () => void;
     onCallback: () => void;
@@ -29,9 +23,6 @@ interface ActionBarProps {
     isProcessing?: boolean;
 }
 
-// ═══════════════════════════════════════════════════════════════
-// ACTION BAR COMPONENT
-// ═══════════════════════════════════════════════════════════════
 export default function ActionBar({
     onConfirm,
     onCallback,
@@ -44,86 +35,89 @@ export default function ActionBar({
 }: ActionBarProps) {
     const [showCancelMenu, setShowCancelMenu] = useState(false);
 
-    const iconSize = 20;
+    // Base button style
+    const baseBtn = "flex flex-col items-center justify-center gap-1 min-w-[90px] py-3 px-4 rounded-lg font-medium text-sm transition-all duration-200";
 
     return (
-        <div className="p-4 border-t border-[#30363d] bg-[#0d1117]">
+        <div className="p-3 bg-background border-t border-border">
             {!showCancelMenu ? (
                 <>
-                    <div className="flex items-center justify-center gap-3">
-                        {/* Confirmed - SOLID GREEN */}
+                    {/* Main Buttons Row */}
+                    <div className="flex items-stretch justify-center gap-2">
+                        {/* Confirmed - GREEN */}
                         <button
                             onClick={onConfirm}
                             disabled={confirmDisabled || isProcessing}
-                            className={`flex flex-col items-center gap-1 px-5 py-3 rounded-xl font-medium transition-all ${confirmDisabled || isProcessing
-                                    ? 'bg-emerald-600/30 text-emerald-200/50 cursor-not-allowed'
-                                    : 'bg-emerald-600 hover:bg-emerald-700 text-white hover:scale-105 shadow-lg shadow-emerald-600/20'
+                            className={`${baseBtn} ${confirmDisabled || isProcessing
+                                    ? 'bg-secondary text-muted-foreground/50 cursor-not-allowed border border-border'
+                                    : 'bg-emerald-600 hover:bg-emerald-500 text-white shadow-lg shadow-emerald-600/30 hover:scale-105'
                                 }`}
                         >
-                            <CheckCircle size={iconSize} />
-                            <span className="text-sm">Confirmed</span>
-                            <span className="text-[10px] opacity-70">[C]</span>
+                            <Check size={18} />
+                            <span>Confirm</span>
+                            <span className="text-[10px] opacity-60">[C]</span>
                         </button>
 
-                        {/* Callback - SOLID AMBER/ORANGE */}
+                        {/* Callback - ORANGE */}
                         <button
                             onClick={onCallback}
                             disabled={isProcessing}
-                            className="flex flex-col items-center gap-1 px-5 py-3 bg-amber-500 hover:bg-amber-600 text-white rounded-xl font-medium transition-all hover:scale-105 shadow-lg shadow-amber-500/20 disabled:opacity-50"
+                            className={`${baseBtn} bg-amber-500 hover:bg-amber-400 text-white shadow-lg shadow-amber-500/30 hover:scale-105 disabled:opacity-50`}
                         >
-                            <Calendar size={iconSize} />
-                            <span className="text-sm">Callback</span>
-                            <span className="text-[10px] opacity-70">[B]</span>
+                            <Calendar size={18} />
+                            <span>Callback</span>
+                            <span className="text-[10px] opacity-60">[B]</span>
                         </button>
 
-                        {/* No Answer - SOLID CYAN */}
+                        {/* No Answer - CYAN */}
                         <button
                             onClick={onNoAnswer}
                             disabled={isProcessing}
-                            className="flex flex-col items-center gap-1 px-5 py-3 bg-cyan-600 hover:bg-cyan-700 text-white rounded-xl font-medium transition-all hover:scale-105 shadow-lg shadow-cyan-600/20 disabled:opacity-50"
+                            className={`${baseBtn} bg-cyan-600 hover:bg-cyan-500 text-white shadow-lg shadow-cyan-600/30 hover:scale-105 disabled:opacity-50`}
                         >
-                            <PhoneMissed size={iconSize} />
-                            <span className="text-sm">No Answer</span>
-                            <span className="text-[10px] opacity-70">[N]</span>
+                            <PhoneOff size={18} />
+                            <span>No Answer</span>
+                            <span className="text-[10px] opacity-60">[N]</span>
                         </button>
 
-                        {/* Cancel - SOLID RED with dropdown */}
-                        <div className="relative">
-                            <button
-                                onClick={() => setShowCancelMenu(!showCancelMenu)}
-                                disabled={isProcessing}
-                                className="flex flex-col items-center gap-1 px-5 py-3 bg-red-600 hover:bg-red-700 text-white rounded-xl font-medium transition-all hover:scale-105 shadow-lg shadow-red-600/20 disabled:opacity-50"
-                            >
-                                <XCircle size={iconSize} />
-                                <span className="text-sm">Cancel</span>
-                                <span className="text-[10px] opacity-70">▼</span>
-                            </button>
-                        </div>
+                        {/* Cancel - RED */}
+                        <button
+                            onClick={() => setShowCancelMenu(true)}
+                            disabled={isProcessing}
+                            className={`${baseBtn} bg-red-600 hover:bg-red-500 text-white shadow-lg shadow-red-600/30 hover:scale-105 disabled:opacity-50`}
+                        >
+                            <X size={18} />
+                            <span>Cancel</span>
+                            <span className="text-[10px] opacity-60">▼</span>
+                        </button>
 
-                        {/* Wrong # - DARK/OUTLINED */}
+                        {/* Divider */}
+                        <div className="w-px bg-border mx-1 self-stretch" />
+
+                        {/* Wrong # - DARK */}
                         <button
                             onClick={onWrongNumber}
                             disabled={isProcessing}
-                            className="flex flex-col items-center gap-1 px-5 py-3 bg-[#21262d] hover:bg-[#30363d] text-[#e6edf3] rounded-xl font-medium border border-[#30363d] transition-colors disabled:opacity-50"
+                            className={`${baseBtn} bg-secondary hover:bg-muted text-muted-foreground hover:text-foreground border border-border disabled:opacity-50`}
                         >
-                            <PhoneOff size={iconSize} />
-                            <span className="text-sm">Wrong #</span>
+                            <Ban size={18} />
+                            <span>Wrong #</span>
                         </button>
 
-                        {/* Skip - DARK/OUTLINED */}
+                        {/* Skip - DARK */}
                         <button
                             onClick={onSkip}
                             disabled={isProcessing}
-                            className="flex flex-col items-center gap-1 px-5 py-3 bg-[#21262d] hover:bg-[#30363d] text-[#e6edf3] rounded-xl font-medium border border-[#30363d] transition-colors disabled:opacity-50"
+                            className={`${baseBtn} bg-secondary hover:bg-muted text-muted-foreground hover:text-foreground border border-border disabled:opacity-50`}
                         >
-                            <SkipForward size={iconSize} />
-                            <span className="text-sm">Skip</span>
-                            <span className="text-[10px] opacity-70">[Esc]</span>
+                            <SkipForward size={18} />
+                            <span>Skip</span>
+                            <span className="text-[10px] opacity-60">[Esc]</span>
                         </button>
                     </div>
 
-                    {/* Keyboard shortcuts hint */}
-                    <div className="flex items-center justify-center gap-6 mt-3 text-[10px] text-[#8b949e]">
+                    {/* Keyboard Hints */}
+                    <div className="flex items-center justify-center gap-6 mt-2 text-[10px] text-muted-foreground/50">
                         <span>[C] Confirm</span>
                         <span>[B] Callback</span>
                         <span>[N] No Answer</span>
@@ -133,13 +127,13 @@ export default function ActionBar({
             ) : (
                 /* Cancel Reasons Panel */
                 <div>
-                    <div className="flex justify-between items-center mb-3">
-                        <span className="text-sm text-[#e6edf3]">Select cancellation reason:</span>
+                    <div className="flex items-center justify-between mb-3">
+                        <span className="text-sm text-foreground">Select cancellation reason:</span>
                         <button
                             onClick={() => setShowCancelMenu(false)}
-                            className="bg-transparent border-none text-[#8b949e] hover:text-[#e6edf3] cursor-pointer flex items-center gap-1 text-sm"
+                            className="flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground"
                         >
-                            <ArrowLeft size={16} /> Back
+                            <ChevronLeft size={16} /> Back
                         </button>
                     </div>
                     <div className="grid grid-cols-6 gap-2">
@@ -151,7 +145,7 @@ export default function ActionBar({
                                     setShowCancelMenu(false);
                                 }}
                                 disabled={isProcessing}
-                                className="py-3 px-3 rounded-lg text-[#e6edf3] text-sm font-medium cursor-pointer transition-colors disabled:opacity-50 bg-[#21262d] hover:bg-[#30363d] border border-[#30363d]"
+                                className="py-2.5 px-3 bg-secondary hover:bg-red-600/20 hover:border-red-500/50 border border-border rounded-lg text-foreground text-xs font-medium transition-colors disabled:opacity-50"
                             >
                                 {reason}
                             </button>

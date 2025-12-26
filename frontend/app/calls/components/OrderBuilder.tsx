@@ -254,7 +254,7 @@ export default function OrderBuilder({
             )}
 
             {/* Header */}
-            <h4 className="text-[13px] font-semibold text-light-100">
+            <h4 className="text-[13px] font-semibold text-foreground">
                 🛒 ORDER BUILDER
             </h4>
 
@@ -332,14 +332,14 @@ export default function OrderBuilder({
                 <div className="flex items-center gap-1">
                     <button
                         onClick={() => setQuantity(Math.max(1, quantity - 1))}
-                        className="w-8 h-9 bg-dark-700 border border-dark-600 rounded text-light-100 cursor-pointer hover:bg-dark-600 transition-colors"
+                        className="w-8 h-9 bg-secondary border border-border rounded text-foreground cursor-pointer hover:bg-muted transition-colors"
                     >
                         -
                     </button>
-                    <span className="w-8 text-center text-light-100 font-semibold">{quantity}</span>
+                    <span className="w-8 text-center text-foreground font-semibold">{quantity}</span>
                     <button
                         onClick={() => setQuantity(quantity + 1)}
-                        className="w-8 h-9 bg-dark-700 border border-dark-600 rounded text-light-100 cursor-pointer hover:bg-dark-600 transition-colors"
+                        className="w-8 h-9 bg-secondary border border-border rounded text-foreground cursor-pointer hover:bg-muted transition-colors"
                     >
                         +
                     </button>
@@ -348,13 +348,13 @@ export default function OrderBuilder({
 
             {/* Variant Selection */}
             {selectedProduct?.has_variants && selectedProduct.variants && (
-                <div className="grid grid-cols-2 gap-2 p-2.5 bg-dark-700 rounded-md">
+                <div className="grid grid-cols-2 gap-2 p-2.5 bg-secondary rounded-md">
                     {Object.entries(selectedProduct.variants).map(([type, options]) => (
                         <select
                             key={type}
                             value={selectedVariants[type] || ''}
                             onChange={(e) => setSelectedVariants({ ...selectedVariants, [type]: e.target.value })}
-                            className={`p-2 bg-dark-900 border rounded text-light-100 text-xs focus:outline-none ${selectedVariants[type] ? 'border-emerald-500' : 'border-red-500'
+                            className={`p-2 bg-background border rounded text-foreground text-xs focus:outline-none ${selectedVariants[type] ? 'border-emerald-500' : 'border-red-500'
                                 }`}
                         >
                             <option value="">Select {type}...</option>
@@ -371,7 +371,7 @@ export default function OrderBuilder({
                 onClick={addToOrder}
                 disabled={!selectedProduct || (selectedProduct.has_variants && !allVariantsSelected())}
                 className={`w-full py-2.5 rounded-md text-white text-[13px] font-semibold transition-colors ${!selectedProduct || (selectedProduct.has_variants && !allVariantsSelected())
-                    ? 'bg-dark-700 cursor-not-allowed'
+                    ? 'bg-secondary cursor-not-allowed'
                     : 'bg-emerald-600 hover:bg-emerald-700 cursor-pointer'
                     }`}
             >
@@ -382,7 +382,7 @@ export default function OrderBuilder({
             {selectedProduct && (
                 <div className="p-3 bg-blue-500/10 border border-blue-500/30 rounded-lg flex gap-3">
                     {/* Product Image */}
-                    <div className="w-16 h-16 rounded-md bg-dark-700 border border-dark-600 flex items-center justify-center overflow-hidden flex-shrink-0">
+                    <div className="w-16 h-16 rounded-md bg-secondary border border-border flex items-center justify-center overflow-hidden flex-shrink-0">
                         {selectedProduct.image_url ? (
                             <img
                                 src={selectedProduct.image_url}
@@ -391,13 +391,13 @@ export default function OrderBuilder({
                                 onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }}
                             />
                         ) : (
-                            <Package size={24} className="text-light-200" />
+                            <Package size={24} className="text-muted-foreground" />
                         )}
                     </div>
 
                     {/* Product Details */}
                     <div className="flex-1">
-                        <h4 className="text-sm font-semibold text-light-100 mb-1">
+                        <h4 className="text-sm font-semibold text-foreground mb-1">
                             {selectedProduct.name}
                         </h4>
 
@@ -435,8 +435,8 @@ export default function OrderBuilder({
             {orderItems.length > 0 && (
                 <div className="space-y-1">
                     {orderItems.map((item, idx) => (
-                        <div key={idx} className="flex items-center justify-between p-2 bg-dark-800 rounded text-xs">
-                            <span className="text-light-100">{item.product_name} ×{item.quantity}</span>
+                        <div key={idx} className="flex items-center justify-between p-2 bg-card rounded text-xs">
+                            <span className="text-foreground">{item.product_name} ×{item.quantity}</span>
                             <div className="flex items-center gap-2">
                                 <span className="text-emerald-500 font-semibold">{(Number(item.total_price) || 0).toFixed(0)} MAD</span>
                                 <button
@@ -452,8 +452,8 @@ export default function OrderBuilder({
             )}
 
             {/* Logistics Section */}
-            <div className="p-3 bg-dark-800 rounded-lg">
-                <h5 className="text-[11px] font-semibold text-light-200 mb-2.5">
+            <div className="p-3 bg-card rounded-lg">
+                <h5 className="text-[11px] font-semibold text-muted-foreground mb-2.5">
                     🚚 DELIVERY INFO
                 </h5>
 
@@ -462,7 +462,7 @@ export default function OrderBuilder({
                     <select
                         value={selectedCity}
                         onChange={(e) => { onCityChange(e.target.value); onZoneChange(''); }}
-                        className="p-2 bg-dark-900 border border-dark-600 rounded text-light-100 text-xs focus:border-emerald-500 focus:outline-none"
+                        className="p-2 bg-background border border-border rounded text-foreground text-xs focus:border-emerald-500 focus:outline-none"
                     >
                         <option value="">Select City...</option>
                         {cities.map(c => (
@@ -475,7 +475,7 @@ export default function OrderBuilder({
                         value={selectedZone}
                         onChange={(e) => onZoneChange(e.target.value)}
                         disabled={!selectedCity || !cityData?.zones.length}
-                        className="p-2 bg-dark-900 border border-dark-600 rounded text-light-100 text-xs focus:border-emerald-500 focus:outline-none disabled:opacity-50"
+                        className="p-2 bg-background border border-border rounded text-foreground text-xs focus:border-emerald-500 focus:outline-none disabled:opacity-50"
                     >
                         <option value="">Select Zone...</option>
                         {(cityData?.zones || []).map((z: string) => (
@@ -490,7 +490,7 @@ export default function OrderBuilder({
                     value={customerAddress}
                     onChange={(e) => onAddressChange(e.target.value)}
                     placeholder="Full address..."
-                    className="w-full p-2 bg-dark-900 border border-dark-600 rounded text-light-100 text-xs mb-2 placeholder:text-light-200/50 focus:border-emerald-500 focus:outline-none"
+                    className="w-full p-2 bg-background border border-border rounded text-foreground text-xs mb-2 placeholder:text-muted-foreground/50 focus:border-emerald-500 focus:outline-none"
                 />
 
                 <div className="grid grid-cols-2 gap-2">
@@ -498,7 +498,7 @@ export default function OrderBuilder({
                     <select
                         value={selectedCourier}
                         onChange={(e) => onCourierChange(e.target.value)}
-                        className="p-2 bg-dark-900 border border-dark-600 rounded text-light-100 text-xs focus:border-emerald-500 focus:outline-none"
+                        className="p-2 bg-background border border-border rounded text-foreground text-xs focus:border-emerald-500 focus:outline-none"
                     >
                         {couriers.map(c => (
                             <option key={c.code} value={c.code}>{c.name}</option>
@@ -507,7 +507,7 @@ export default function OrderBuilder({
                     </select>
 
                     {/* Exchange Checkbox */}
-                    <label className={`flex items-center gap-2 p-2 rounded border border-dark-600 cursor-pointer transition-colors ${isExchange ? 'bg-purple-500/15' : 'bg-dark-900'
+                    <label className={`flex items-center gap-2 p-2 rounded border border-border cursor-pointer transition-colors ${isExchange ? 'bg-purple-500/15' : 'bg-background'
                         }`}>
                         <input
                             type="checkbox"
@@ -515,7 +515,7 @@ export default function OrderBuilder({
                             onChange={(e) => onExchangeChange(e.target.checked)}
                             className="accent-purple-500"
                         />
-                        <span className="text-[11px] text-light-100 flex items-center gap-1">
+                        <span className="text-[11px] text-foreground flex items-center gap-1">
                             <Repeat size={12} />
                             Exchange
                         </span>
