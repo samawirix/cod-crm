@@ -109,6 +109,7 @@ export default function OrderBuilder({
 }: OrderBuilderProps) {
     // Local state for product selection
     const [selectedProduct, setSelectedProduct] = useState<Product | null>(null);
+    const [selectedVariant, setSelectedVariant] = useState<ProductVariant | null>(null);
     const [selectedVariants, setSelectedVariants] = useState<{ [key: string]: string }>({});
     const [quantity, setQuantity] = useState(1);
 
@@ -140,41 +141,97 @@ export default function OrderBuilder({
         }
     };
 
-    // Product selection handler
-    const handleProductSelect = (productId: number) => {
+    // Product selection handler - parses "productId-variantId" format
+    const handleProductSelect = (value: string) => {
+        if (!value) {
+            setSelectedProduct(null);
+            setSelectedVariant(null);
+            setSelectedVariants({});
+            setQuantity(1);
+            return;
+        }
+
+        const [productIdStr, variantIdStr] = value.split('-');
+        const productId = parseInt(productIdStr);
+        const variantId = parseInt(variantIdStr);
+
         const product = products.find(p => p.id === productId);
-        setSelectedProduct(product || null);
+        if (!product) return;
+
+        setSelectedProduct(product);
         setSelectedVariants({});
         setQuantity(1);
+
+        // If variant ID is provided (not 0), find the variant
+        if (variantId && product.product_variants) {
+            const variant = product.product_variants.find(v => v.id === variantId);
+            setSelectedVariant(variant || null);
+        } else {
+            setSelectedVariant(null);
+        }
     };
 
-    // Check if all variants are selected
+    // Check if all variants are selected (for legacy variant system)
     const allVariantsSelected = () => {
         if (!selectedProduct?.variants) return true;
         return Object.keys(selectedProduct.variants).every(key => selectedVariants[key]);
     };
 
+    // Get variant display label
+    const getVariantLabel = (variant: ProductVariant) => {
+        const parts = [];
+        if (variant.color) parts.push(variant.color);
+        if (variant.size) parts.push(variant.size);
+        if (variant.capacity) parts.push(variant.capacity);
+        return parts.length > 0 ? parts.join(' / ') : variant.variant_name;
+    };
+
     // Add to order
     const addToOrder = () => {
         if (!selectedProduct) return;
-        if (selectedProduct.has_variants && !allVariantsSelected()) return;
 
-        const price = Number(selectedProduct.selling_price) || 0;
-        const variantLabel = Object.values(selectedVariants).join(' / ');
+        // Determine price and label based on variant
+        let price: number;
+        let productName: string;
+        let variantInfo: { [key: string]: string } | undefined;
+
+        if (selectedVariant) {
+            // Using database variant
+            price = selectedVariant.price_override || Number(selectedProduct.selling_price) || 0;
+            const variantLabel = getVariantLabel(selectedVariant);
+            productName = `${selectedProduct.name} [${variantLabel}]`;
+            variantInfo = {
+                variant_id: String(selectedVariant.id),
+                variant_name: selectedVariant.variant_name,
+                ...(selectedVariant.color && { color: selectedVariant.color }),
+                ...(selectedVariant.size && { size: selectedVariant.size }),
+                ...(selectedVariant.capacity && { capacity: selectedVariant.capacity }),
+            };
+        } else if (selectedProduct.has_variants && Object.keys(selectedVariants).length > 0) {
+            // Using legacy variant system
+            if (!allVariantsSelected()) return;
+            price = Number(selectedProduct.selling_price) || 0;
+            const variantLabel = Object.values(selectedVariants).join(' / ');
+            productName = `${selectedProduct.name} [${variantLabel}]`;
+            variantInfo = { ...selectedVariants };
+        } else {
+            // No variants
+            price = Number(selectedProduct.selling_price) || 0;
+            productName = selectedProduct.name;
+        }
 
         const newItem: OrderItem = {
             product_id: selectedProduct.id,
-            product_name: variantLabel
-                ? `${selectedProduct.name} (${variantLabel})`
-                : selectedProduct.name,
+            product_name: productName,
             quantity,
             unit_price: price,
             total_price: price * quantity,
-            selected_variants: selectedProduct.has_variants ? { ...selectedVariants } : undefined,
+            selected_variants: variantInfo,
         };
 
         onOrderItemsChange([...orderItems, newItem]);
         setSelectedProduct(null);
+        setSelectedVariant(null);
         setSelectedVariants({});
         setQuantity(1);
     };
@@ -231,30 +288,41 @@ export default function OrderBuilder({
             {/* Product Selection */}
             <div className="grid grid-cols-[1fr_auto] gap-2">
                 <select
-                    value={selectedProduct?.id || ''}
-                    onChange={(e) => handleProductSelect(Number(e.target.value))}
-                    className="p-2.5 bg-dark-800 border border-dark-600 rounded-md text-light-100 text-[13px] focus:border-emerald-500 focus:outline-none cursor-pointer"
+                    value={selectedVariant ? `${selectedProduct?.id}-${selectedVariant.id}` : (selectedProduct ? `${selectedProduct.id}-0` : '')}
+                    onChange={(e) => handleProductSelect(e.target.value)}
+                    className="p-2.5 bg-[#21262d] border border-[#30363d] rounded-lg text-[#e6edf3] text-[13px] focus:border-emerald-500 focus:outline-none cursor-pointer"
                 >
                     <option value="">Select product...</option>
                     {products.map((p) => {
+                        // If product has database variants, show as optgroup
                         if (p.product_variants && p.product_variants.length > 0) {
                             return (
                                 <optgroup key={p.id} label={`📦 ${p.name}`}>
-                                    {p.product_variants.map(v => (
-                                        <option
-                                            key={`${p.id}-${v.id}`}
-                                            value={p.id}
-                                            disabled={!v.is_in_stock}
-                                        >
-                                            {v.variant_name} • {v.price_override || p.selling_price} MAD • {v.stock_quantity} in stock {!v.is_in_stock ? '❌' : ''}
-                                        </option>
-                                    ))}
+                                    {p.product_variants.map(v => {
+                                        // Build variant label from color/size/capacity
+                                        const parts = [];
+                                        if (v.color) parts.push(v.color);
+                                        if (v.size) parts.push(v.size);
+                                        if (v.capacity) parts.push(v.capacity);
+                                        const variantLabel = parts.length > 0 ? parts.join(' / ') : v.variant_name;
+
+                                        return (
+                                            <option
+                                                key={`${p.id}-${v.id}`}
+                                                value={`${p.id}-${v.id}`}
+                                                disabled={v.stock_quantity <= 0}
+                                            >
+                                                {variantLabel} • {v.price_override || p.selling_price} MAD • {v.stock_quantity} in stock{v.stock_quantity <= 0 ? ' ❌' : ''}
+                                            </option>
+                                        );
+                                    })}
                                 </optgroup>
                             );
                         }
+                        // If no variants, show product directly
                         return (
-                            <option key={p.id} value={p.id}>
-                                {p.name} - {p.selling_price} MAD {p.stock_quantity < 5 ? '⚠️' : ''}
+                            <option key={p.id} value={`${p.id}-0`}>
+                                {p.name} • {p.selling_price} MAD{p.stock_quantity < 5 ? ' ⚠️' : ''}
                             </option>
                         );
                     })}
