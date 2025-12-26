@@ -76,6 +76,9 @@ interface OrderBuilderProps {
     subtotal: number;
     shippingCost: number;
     total: number;
+    utmSource: string;
+    salesAction: 'normal' | 'upsell' | 'cross_sell' | 'exchange';
+    onSalesActionChange: (action: 'normal' | 'upsell' | 'cross_sell' | 'exchange') => void;
 }
 
 // ═══════════════════════════════════════════════════════════════
@@ -100,6 +103,9 @@ export default function OrderBuilder({
     subtotal,
     shippingCost,
     total,
+    utmSource,
+    salesAction,
+    onSalesActionChange,
 }: OrderBuilderProps) {
     // Local state for product selection
     const [selectedProduct, setSelectedProduct] = useState<Product | null>(null);
@@ -110,6 +116,29 @@ export default function OrderBuilder({
     const totalQuantity = orderItems.reduce((sum, item) => sum + item.quantity, 0);
     const isUpsell = totalQuantity > 1;
     const cityData = cities.find(c => c.name === selectedCity);
+
+    // Helper functions for UTM Source styling
+    const getSourceStyle = (source: string) => {
+        switch (source?.toUpperCase()) {
+            case 'FACEBOOK': return 'bg-[#1877F2]/20 text-[#1877F2]';
+            case 'TIKTOK': return 'bg-gray-700 text-white';
+            case 'GOOGLE': return 'bg-[#4285F4]/20 text-[#4285F4]';
+            case 'INSTAGRAM': return 'bg-[#E4405F]/20 text-[#E4405F]';
+            case 'WHATSAPP': return 'bg-[#25D366]/20 text-[#25D366]';
+            default: return 'bg-[#21262d] text-[#8b949e]';
+        }
+    };
+
+    const getSourceIcon = (source: string) => {
+        switch (source?.toUpperCase()) {
+            case 'FACEBOOK': return '📘';
+            case 'TIKTOK': return '🎵';
+            case 'GOOGLE': return '🔍';
+            case 'INSTAGRAM': return '📸';
+            case 'WHATSAPP': return '💬';
+            default: return '🌐';
+        }
+    };
 
     // Product selection handler
     const handleProductSelect = (productId: number) => {
@@ -171,6 +200,33 @@ export default function OrderBuilder({
             <h4 className="text-[13px] font-semibold text-light-100">
                 🛒 ORDER BUILDER
             </h4>
+
+            {/* UTM Source & Sale Type Section */}
+            <div className="grid grid-cols-2 gap-3">
+                {/* UTM Source Badge */}
+                <div>
+                    <label className="block text-xs text-[#8b949e] mb-1">Traffic Source</label>
+                    <div className={`p-3 rounded-lg flex items-center gap-2 text-sm font-medium ${getSourceStyle(utmSource)}`}>
+                        {getSourceIcon(utmSource)}
+                        {utmSource || 'DIRECT'}
+                    </div>
+                </div>
+
+                {/* Sale Type Dropdown */}
+                <div>
+                    <label className="block text-xs text-[#8b949e] mb-1">Sale Type</label>
+                    <select
+                        value={salesAction}
+                        onChange={(e) => onSalesActionChange(e.target.value as any)}
+                        className="w-full p-3 bg-[#21262d] border border-[#30363d] rounded-lg text-[#e6edf3] text-sm focus:border-emerald-500 focus:outline-none cursor-pointer"
+                    >
+                        <option value="normal">🛒 Normal Sale</option>
+                        <option value="upsell">⬆️ Upsell</option>
+                        <option value="cross_sell">➕ Cross-sell</option>
+                        <option value="exchange">🔄 Exchange</option>
+                    </select>
+                </div>
+            </div>
 
             {/* Product Selection */}
             <div className="grid grid-cols-[1fr_auto] gap-2">
@@ -247,8 +303,8 @@ export default function OrderBuilder({
                 onClick={addToOrder}
                 disabled={!selectedProduct || (selectedProduct.has_variants && !allVariantsSelected())}
                 className={`w-full py-2.5 rounded-md text-white text-[13px] font-semibold transition-colors ${!selectedProduct || (selectedProduct.has_variants && !allVariantsSelected())
-                        ? 'bg-dark-700 cursor-not-allowed'
-                        : 'bg-emerald-600 hover:bg-emerald-700 cursor-pointer'
+                    ? 'bg-dark-700 cursor-not-allowed'
+                    : 'bg-emerald-600 hover:bg-emerald-700 cursor-pointer'
                     }`}
             >
                 + Add to Order {selectedProduct && `(${((Number(selectedProduct.selling_price) || 0) * quantity).toFixed(0)} MAD)`}
@@ -295,10 +351,10 @@ export default function OrderBuilder({
                                 {((Number(selectedProduct.selling_price) || 0) * quantity).toFixed(0)} MAD
                             </span>
                             <span className={`px-2 py-0.5 rounded text-[10px] font-medium ${selectedProduct.stock_quantity > 10
-                                    ? 'bg-emerald-500/15 text-emerald-500'
-                                    : selectedProduct.stock_quantity > 0
-                                        ? 'bg-amber-500/15 text-amber-500'
-                                        : 'bg-red-500/15 text-red-500'
+                                ? 'bg-emerald-500/15 text-emerald-500'
+                                : selectedProduct.stock_quantity > 0
+                                    ? 'bg-amber-500/15 text-amber-500'
+                                    : 'bg-red-500/15 text-red-500'
                                 }`}>
                                 {selectedProduct.stock_quantity} in stock
                             </span>

@@ -56,12 +56,13 @@ export default function ActionBar({
                         onClick={onConfirm}
                         disabled={confirmDisabled || isProcessing}
                         className={`${buttonBase} ${confirmDisabled || isProcessing
-                                ? 'bg-dark-700 text-light-200 cursor-not-allowed'
-                                : 'bg-emerald-600 hover:bg-emerald-700 text-white hover:scale-105 shadow-lg shadow-emerald-600/30'
+                            ? 'bg-emerald-600/30 text-emerald-200/50 cursor-not-allowed'
+                            : 'bg-emerald-600 hover:bg-emerald-700 text-white hover:scale-105 shadow-lg shadow-emerald-600/30'
                             }`}
                     >
                         <CheckCircle size={iconSize} />
-                        Confirmed
+                        <span>Confirmed</span>
+                        <span className="text-[10px] text-emerald-200/70">[C]</span>
                     </button>
 
                     {/* 📅 Callback */}
@@ -71,47 +72,51 @@ export default function ActionBar({
                         className={`${buttonBase} bg-amber-600 hover:bg-amber-700 text-white disabled:opacity-50`}
                     >
                         <Calendar size={iconSize} />
-                        Callback
+                        <span>Callback</span>
+                        <span className="text-[10px] text-amber-200/70">[B]</span>
                     </button>
 
                     {/* 📞 No Answer */}
                     <button
                         onClick={onNoAnswer}
                         disabled={isProcessing}
-                        className={`${buttonBase} bg-blue-600 hover:bg-blue-700 text-white disabled:opacity-50`}
+                        className={`${buttonBase} bg-teal-600 hover:bg-teal-700 text-white disabled:opacity-50`}
                     >
                         <PhoneMissed size={iconSize} />
-                        No Answer
+                        <span>No Answer</span>
+                        <span className="text-[10px] text-teal-200/70">[N]</span>
                     </button>
 
                     {/* ❌ Cancel (Opens reasons) */}
                     <button
                         onClick={() => setShowCancelReasons(true)}
                         disabled={isProcessing}
-                        className={`${buttonBase} bg-red-700 hover:bg-red-800 text-white disabled:opacity-50`}
+                        className={`${buttonBase} bg-red-600 hover:bg-red-700 text-white disabled:opacity-50`}
                     >
                         <XCircle size={iconSize} />
-                        Cancel ▼
+                        <span>Cancel</span>
+                        <span className="text-[10px] text-red-200/70">▼</span>
                     </button>
 
                     {/* 🚫 Wrong Number */}
                     <button
                         onClick={onWrongNumber}
                         disabled={isProcessing}
-                        className={`${buttonBase} bg-dark-700 hover:bg-dark-600 border border-dark-600 text-red-500 disabled:opacity-50`}
+                        className={`${buttonBase} bg-[#21262d] hover:bg-[#30363d] border border-[#30363d] text-[#e6edf3] disabled:opacity-50`}
                     >
                         <Ban size={iconSize} />
-                        Wrong #
+                        <span>Wrong #</span>
                     </button>
 
                     {/* Skip/End Call */}
                     <button
                         onClick={onSkip}
                         disabled={isProcessing}
-                        className={`${buttonBase} bg-dark-900 hover:bg-dark-700 border border-dark-600 text-light-200 disabled:opacity-50`}
+                        className={`${buttonBase} bg-[#21262d] hover:bg-[#30363d] border border-[#30363d] text-[#e6edf3] disabled:opacity-50`}
                     >
                         <PhoneOff size={iconSize} />
-                        Skip
+                        <span>Skip</span>
+                        <span className="text-[10px] text-[#8b949e]">[Esc]</span>
                     </button>
                 </div>
             ) : (
@@ -136,24 +141,14 @@ export default function ActionBar({
                                 }}
                                 disabled={isProcessing}
                                 className={`py-2.5 px-2 rounded-md text-white text-[11px] font-medium cursor-pointer transition-colors disabled:opacity-50 ${opt.reason === 'PRICE'
-                                        ? 'bg-red-700 hover:bg-red-800'
-                                        : 'bg-dark-500 hover:bg-dark-400'
+                                    ? 'bg-red-700 hover:bg-red-800'
+                                    : 'bg-dark-500 hover:bg-dark-400'
                                     }`}
                             >
                                 {opt.label}
                             </button>
                         ))}
                     </div>
-                </div>
-            )}
-
-            {/* Optional: Keyboard shortcuts hint */}
-            {!showCancelReasons && (
-                <div className="flex items-center justify-center gap-6 mt-2 text-[10px] text-light-200/60">
-                    <span>[C] Confirm</span>
-                    <span>[B] Callback</span>
-                    <span>[N] No Answer</span>
-                    <span>[Esc] Skip</span>
                 </div>
             )}
         </div>

@@ -38,6 +38,7 @@ export default function CallCenterPage() {
     const [customerAddress, setCustomerAddress] = useState('');
     const [selectedCourier, setSelectedCourier] = useState('AMANA');
     const [isExchange, setIsExchange] = useState(false);
+    const [salesAction, setSalesAction] = useState<'normal' | 'upsell' | 'cross_sell' | 'exchange'>('normal');
 
     // UI State
     const [callNotes, setCallNotes] = useState('');
@@ -190,6 +191,7 @@ export default function CallCenterPage() {
         setOrderItems([]);
         setCallNotes('');
         setIsExchange(false);
+        setSalesAction('normal');
         setSelectedCity(lead.city || '');
         setCustomerAddress(lead.address || '');
         if (soundEnabled) { /* Audio notification */ }
@@ -364,6 +366,9 @@ export default function CallCenterPage() {
                             subtotal={subtotal}
                             shippingCost={shippingCost}
                             total={total}
+                            utmSource={activeLead?.source || 'DIRECT'}
+                            salesAction={salesAction}
+                            onSalesActionChange={setSalesAction}
                         />
                         <ActionBar
                             onConfirm={() => handleOutcome('CONFIRMED')}
