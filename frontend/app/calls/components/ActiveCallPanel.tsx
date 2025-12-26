@@ -21,7 +21,7 @@ interface ActiveCallPanelProps {
     callNotes: string;
     onNotesChange: (notes: string) => void;
     onEndCall: () => void;
-    children: React.ReactNode;
+    children: React.ReactNode; // OrderBuilder + ActionBar
 }
 
 function formatDuration(seconds: number): string {
@@ -59,8 +59,11 @@ export default function ActiveCallPanel({
 
     return (
         <div className="flex-1 flex flex-col bg-background min-w-0">
-            {/* CALL HEADER - Compact */}
+            {/* ═══════════════════════════════════════════════════════════════ */}
+            {/* CALL HEADER - Compact                                           */}
+            {/* ═══════════════════════════════════════════════════════════════ */}
             <div className="px-4 py-3 bg-card border-b border-border flex items-center justify-between gap-4">
+                {/* Customer Info */}
                 <div className="flex items-center gap-3 min-w-0">
                     <div className="w-10 h-10 rounded-full bg-emerald-600 flex items-center justify-center flex-shrink-0">
                         <Phone size={20} className="text-white" />
@@ -75,6 +78,7 @@ export default function ActiveCallPanel({
                     </div>
                 </div>
 
+                {/* Timer & End Call */}
                 <div className="flex items-center gap-3 flex-shrink-0">
                     <div className="text-right">
                         <p className="text-2xl font-bold text-emerald-500 font-mono leading-none">
@@ -92,7 +96,9 @@ export default function ActiveCallPanel({
                 </div>
             </div>
 
-            {/* WHATSAPP - Compact */}
+            {/* ═══════════════════════════════════════════════════════════════ */}
+            {/* WHATSAPP QUICK ACTIONS - Compact                                 */}
+            {/* ═══════════════════════════════════════════════════════════════ */}
             <div className="px-4 py-1.5 bg-secondary/50 flex items-center gap-2 border-b border-border">
                 <MessageCircle size={14} className="text-[#25D366] flex-shrink-0" />
                 <span className="text-xs text-muted-foreground mr-1">WhatsApp:</span>
@@ -111,10 +117,13 @@ export default function ActiveCallPanel({
                 </div>
             </div>
 
-            {/* MAIN CONTENT - Scrollable */}
+            {/* ═══════════════════════════════════════════════════════════════ */}
+            {/* MAIN CONTENT - Scrollable                                       */}
+            {/* ═══════════════════════════════════════════════════════════════ */}
             <div className="flex-1 flex overflow-hidden min-h-0">
-                {/* LEFT: Notes & Info */}
+                {/* LEFT: Notes & Lead Info */}
                 <div className="w-[280px] flex-shrink-0 p-3 border-r border-border overflow-y-auto bg-card/50">
+                    {/* Call Notes */}
                     <div className="mb-4">
                         <h4 className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wide mb-2">
                             Call Notes
@@ -123,20 +132,21 @@ export default function ActiveCallPanel({
                             value={callNotes}
                             onChange={(e) => onNotesChange(e.target.value)}
                             placeholder="Quick notes..."
-                            className="w-full h-24 p-2.5 bg-background border border-border rounded-lg text-foreground text-sm resize-none focus:border-emerald-500 focus:outline-none placeholder:text-muted-foreground/50"
+                            className="w-full h-24 p-2.5 bg-background border border-border rounded-lg text-foreground text-sm resize-none focus:border-emerald-500 focus:outline-none focus:ring-1 focus:ring-emerald-500/20 placeholder:text-muted-foreground/50"
                         />
                     </div>
 
+                    {/* Lead Info */}
                     <div>
                         <h4 className="text-[11px] font-semibold text-muted-foreground uppercase tracking-wide mb-2">
                             Lead Info
                         </h4>
-                        <div className="space-y-2 text-sm">
-                            <p><span className="text-muted-foreground">📍 City:</span> <span className="text-foreground">{lead.city || 'Not specified'}</span></p>
-                            <p><span className="text-muted-foreground">📦 Interest:</span> <span className="text-foreground">{lead.product_interest || 'None'}</span></p>
-                            <p><span className="text-muted-foreground">📞 Calls:</span> <span className="text-foreground">{lead.call_count}</span></p>
+                        <div className="space-y-2">
+                            <InfoRow icon="📍" label="City" value={lead.city || 'Not specified'} />
+                            <InfoRow icon="📦" label="Interest" value={lead.product_interest || 'None'} />
+                            <InfoRow icon="📞" label="Call Count" value={String(lead.call_count)} />
                             {getLeadNotes() && (
-                                <div className="p-2 bg-background rounded-lg border border-border mt-2">
+                                <div className="p-2 bg-background rounded-lg border border-border">
                                     <p className="text-xs text-muted-foreground">📝 {getLeadNotes()}</p>
                                 </div>
                             )}
@@ -150,8 +160,23 @@ export default function ActiveCallPanel({
                 </div>
             </div>
 
-            {/* ACTION BAR - Fixed at bottom */}
+            {/* ═══════════════════════════════════════════════════════════════ */}
+            {/* ACTION BAR - Fixed at bottom                                    */}
+            {/* ═══════════════════════════════════════════════════════════════ */}
             {actionBar}
+        </div>
+    );
+}
+
+// ═══════════════════════════════════════════════════════════════
+// HELPER COMPONENT
+// ═══════════════════════════════════════════════════════════════
+function InfoRow({ icon, label, value }: { icon: string; label: string; value: string }) {
+    return (
+        <div className="flex items-center gap-2 text-sm">
+            <span className="text-base">{icon}</span>
+            <span className="text-muted-foreground">{label}:</span>
+            <span className="text-foreground font-medium truncate">{value}</span>
         </div>
     );
 }

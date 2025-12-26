@@ -188,12 +188,73 @@ export default function CallCenterPage() {
         setActiveLead(lead);
         setCallStartTime(new Date());
         setCallDuration(0);
-        setOrderItems([]);
         setCallNotes('');
         setIsExchange(false);
         setSalesAction('normal');
         setSelectedCity(lead.city || '');
         setCustomerAddress(lead.address || '');
+
+        // ═══════════════════════════════════════════════════════════════
+        // AUTO-POPULATE ORDER FROM LEAD'S PRODUCT INTEREST
+        // ═══════════════════════════════════════════════════════════════
+        if (lead.product_interest && products.length > 0) {
+            // Find matching product by name (case-insensitive, partial match)
+            const matchedProduct = products.find(p =>
+                p.name.toLowerCase().includes(lead.product_interest!.toLowerCase()) ||
+                lead.product_interest!.toLowerCase().includes(p.name.toLowerCase())
+            );
+
+            if (matchedProduct) {
+                // Check if product has variants
+                if (matchedProduct.product_variants && matchedProduct.product_variants.length > 0) {
+                    // Get first available variant (in-stock preferred)
+                    const availableVariant = matchedProduct.product_variants.find(v => v.stock_quantity > 0)
+                        || matchedProduct.product_variants[0];
+
+                    // Build variant label
+                    const variantParts: string[] = [];
+                    if (availableVariant.color) variantParts.push(availableVariant.color);
+                    if (availableVariant.size) variantParts.push(availableVariant.size);
+                    if (availableVariant.capacity) variantParts.push(availableVariant.capacity);
+                    const variantLabel = variantParts.length > 0
+                        ? variantParts.join(' / ')
+                        : availableVariant.variant_name;
+
+                    const price = availableVariant.price_override || matchedProduct.selling_price;
+
+                    setOrderItems([{
+                        product_id: matchedProduct.id,
+                        product_name: `${matchedProduct.name} [${variantLabel}]`,
+                        quantity: 1,
+                        unit_price: price,
+                        total_price: price,
+                        selected_variants: {
+                            variant_id: String(availableVariant.id),
+                            variant_name: availableVariant.variant_name,
+                            ...(availableVariant.color && { color: availableVariant.color }),
+                            ...(availableVariant.size && { size: availableVariant.size }),
+                            ...(availableVariant.capacity && { capacity: availableVariant.capacity }),
+                        },
+                    }]);
+                } else {
+                    // Product without variants
+                    setOrderItems([{
+                        product_id: matchedProduct.id,
+                        product_name: matchedProduct.name,
+                        quantity: 1,
+                        unit_price: matchedProduct.selling_price,
+                        total_price: matchedProduct.selling_price,
+                    }]);
+                }
+            } else {
+                // No matching product found - start with empty order
+                setOrderItems([]);
+            }
+        } else {
+            // No product interest - start with empty order
+            setOrderItems([]);
+        }
+
         if (soundEnabled) { /* Audio notification */ }
     };
 
