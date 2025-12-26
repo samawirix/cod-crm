@@ -1,17 +1,18 @@
 'use client';
 
 import React, { useState } from 'react';
-import { CheckCircle, Calendar, PhoneMissed, XCircle, Ban, PhoneOff, ArrowLeft } from 'lucide-react';
+import { CheckCircle, Calendar, PhoneMissed, XCircle, PhoneOff, SkipForward, ArrowLeft } from 'lucide-react';
 
 // ═══════════════════════════════════════════════════════════════
 // CANCEL REASONS
 // ═══════════════════════════════════════════════════════════════
 const CANCEL_REASONS = [
-    { label: '💸 Price Too High', reason: 'PRICE', color: 'bg-red-700' },
-    { label: '📦 Out of Stock', reason: 'OOS', color: 'bg-dark-500' },
-    { label: '🤔 Changed Mind', reason: 'CHANGED_MIND', color: 'bg-dark-500' },
-    { label: '🏠 Delivery Issue', reason: 'DELIVERY', color: 'bg-dark-500' },
-    { label: '❓ Other', reason: 'OTHER', color: 'bg-dark-500' },
+    'Price too high',
+    'Changed mind',
+    'Found elsewhere',
+    'Not interested',
+    'Duplicate order',
+    'Other',
 ];
 
 // ═══════════════════════════════════════════════════════════════
@@ -41,111 +42,118 @@ export default function ActionBar({
     confirmDisabled,
     isProcessing = false,
 }: ActionBarProps) {
-    const [showCancelReasons, setShowCancelReasons] = useState(false);
+    const [showCancelMenu, setShowCancelMenu] = useState(false);
 
-    // Button base styles
-    const buttonBase = "py-3 px-2 rounded-lg text-[11px] font-semibold cursor-pointer flex flex-col items-center gap-1 transition-all";
     const iconSize = 20;
 
     return (
-        <div className="p-3 border-t border-dark-600 bg-dark-800">
-            {!showCancelReasons ? (
-                <div className="grid grid-cols-6 gap-2">
-                    {/* ✅ Confirmed */}
-                    <button
-                        onClick={onConfirm}
-                        disabled={confirmDisabled || isProcessing}
-                        className={`${buttonBase} ${confirmDisabled || isProcessing
-                            ? 'bg-emerald-600/30 text-emerald-200/50 cursor-not-allowed'
-                            : 'bg-emerald-600 hover:bg-emerald-700 text-white hover:scale-105 shadow-lg shadow-emerald-600/30'
-                            }`}
-                    >
-                        <CheckCircle size={iconSize} />
-                        <span>Confirmed</span>
-                        <span className="text-[10px] text-emerald-200/70">[C]</span>
-                    </button>
+        <div className="p-4 border-t border-[#30363d] bg-[#0d1117]">
+            {!showCancelMenu ? (
+                <>
+                    <div className="flex items-center justify-center gap-3">
+                        {/* Confirmed - SOLID GREEN */}
+                        <button
+                            onClick={onConfirm}
+                            disabled={confirmDisabled || isProcessing}
+                            className={`flex flex-col items-center gap-1 px-5 py-3 rounded-xl font-medium transition-all ${confirmDisabled || isProcessing
+                                    ? 'bg-emerald-600/30 text-emerald-200/50 cursor-not-allowed'
+                                    : 'bg-emerald-600 hover:bg-emerald-700 text-white hover:scale-105 shadow-lg shadow-emerald-600/20'
+                                }`}
+                        >
+                            <CheckCircle size={iconSize} />
+                            <span className="text-sm">Confirmed</span>
+                            <span className="text-[10px] opacity-70">[C]</span>
+                        </button>
 
-                    {/* 📅 Callback */}
-                    <button
-                        onClick={onCallback}
-                        disabled={isProcessing}
-                        className={`${buttonBase} bg-amber-600 hover:bg-amber-700 text-white disabled:opacity-50`}
-                    >
-                        <Calendar size={iconSize} />
-                        <span>Callback</span>
-                        <span className="text-[10px] text-amber-200/70">[B]</span>
-                    </button>
+                        {/* Callback - SOLID AMBER/ORANGE */}
+                        <button
+                            onClick={onCallback}
+                            disabled={isProcessing}
+                            className="flex flex-col items-center gap-1 px-5 py-3 bg-amber-500 hover:bg-amber-600 text-white rounded-xl font-medium transition-all hover:scale-105 shadow-lg shadow-amber-500/20 disabled:opacity-50"
+                        >
+                            <Calendar size={iconSize} />
+                            <span className="text-sm">Callback</span>
+                            <span className="text-[10px] opacity-70">[B]</span>
+                        </button>
 
-                    {/* 📞 No Answer */}
-                    <button
-                        onClick={onNoAnswer}
-                        disabled={isProcessing}
-                        className={`${buttonBase} bg-teal-600 hover:bg-teal-700 text-white disabled:opacity-50`}
-                    >
-                        <PhoneMissed size={iconSize} />
-                        <span>No Answer</span>
-                        <span className="text-[10px] text-teal-200/70">[N]</span>
-                    </button>
+                        {/* No Answer - SOLID CYAN */}
+                        <button
+                            onClick={onNoAnswer}
+                            disabled={isProcessing}
+                            className="flex flex-col items-center gap-1 px-5 py-3 bg-cyan-600 hover:bg-cyan-700 text-white rounded-xl font-medium transition-all hover:scale-105 shadow-lg shadow-cyan-600/20 disabled:opacity-50"
+                        >
+                            <PhoneMissed size={iconSize} />
+                            <span className="text-sm">No Answer</span>
+                            <span className="text-[10px] opacity-70">[N]</span>
+                        </button>
 
-                    {/* ❌ Cancel (Opens reasons) */}
-                    <button
-                        onClick={() => setShowCancelReasons(true)}
-                        disabled={isProcessing}
-                        className={`${buttonBase} bg-red-600 hover:bg-red-700 text-white disabled:opacity-50`}
-                    >
-                        <XCircle size={iconSize} />
-                        <span>Cancel</span>
-                        <span className="text-[10px] text-red-200/70">▼</span>
-                    </button>
+                        {/* Cancel - SOLID RED with dropdown */}
+                        <div className="relative">
+                            <button
+                                onClick={() => setShowCancelMenu(!showCancelMenu)}
+                                disabled={isProcessing}
+                                className="flex flex-col items-center gap-1 px-5 py-3 bg-red-600 hover:bg-red-700 text-white rounded-xl font-medium transition-all hover:scale-105 shadow-lg shadow-red-600/20 disabled:opacity-50"
+                            >
+                                <XCircle size={iconSize} />
+                                <span className="text-sm">Cancel</span>
+                                <span className="text-[10px] opacity-70">▼</span>
+                            </button>
+                        </div>
 
-                    {/* 🚫 Wrong Number */}
-                    <button
-                        onClick={onWrongNumber}
-                        disabled={isProcessing}
-                        className={`${buttonBase} bg-[#21262d] hover:bg-[#30363d] border border-[#30363d] text-[#e6edf3] disabled:opacity-50`}
-                    >
-                        <Ban size={iconSize} />
-                        <span>Wrong #</span>
-                    </button>
+                        {/* Wrong # - DARK/OUTLINED */}
+                        <button
+                            onClick={onWrongNumber}
+                            disabled={isProcessing}
+                            className="flex flex-col items-center gap-1 px-5 py-3 bg-[#21262d] hover:bg-[#30363d] text-[#e6edf3] rounded-xl font-medium border border-[#30363d] transition-colors disabled:opacity-50"
+                        >
+                            <PhoneOff size={iconSize} />
+                            <span className="text-sm">Wrong #</span>
+                        </button>
 
-                    {/* Skip/End Call */}
-                    <button
-                        onClick={onSkip}
-                        disabled={isProcessing}
-                        className={`${buttonBase} bg-[#21262d] hover:bg-[#30363d] border border-[#30363d] text-[#e6edf3] disabled:opacity-50`}
-                    >
-                        <PhoneOff size={iconSize} />
-                        <span>Skip</span>
-                        <span className="text-[10px] text-[#8b949e]">[Esc]</span>
-                    </button>
-                </div>
+                        {/* Skip - DARK/OUTLINED */}
+                        <button
+                            onClick={onSkip}
+                            disabled={isProcessing}
+                            className="flex flex-col items-center gap-1 px-5 py-3 bg-[#21262d] hover:bg-[#30363d] text-[#e6edf3] rounded-xl font-medium border border-[#30363d] transition-colors disabled:opacity-50"
+                        >
+                            <SkipForward size={iconSize} />
+                            <span className="text-sm">Skip</span>
+                            <span className="text-[10px] opacity-70">[Esc]</span>
+                        </button>
+                    </div>
+
+                    {/* Keyboard shortcuts hint */}
+                    <div className="flex items-center justify-center gap-6 mt-3 text-[10px] text-[#8b949e]">
+                        <span>[C] Confirm</span>
+                        <span>[B] Callback</span>
+                        <span>[N] No Answer</span>
+                        <span>[Esc] Skip</span>
+                    </div>
+                </>
             ) : (
                 /* Cancel Reasons Panel */
                 <div>
-                    <div className="flex justify-between items-center mb-2.5">
-                        <span className="text-xs text-light-200">Select cancellation reason:</span>
+                    <div className="flex justify-between items-center mb-3">
+                        <span className="text-sm text-[#e6edf3]">Select cancellation reason:</span>
                         <button
-                            onClick={() => setShowCancelReasons(false)}
-                            className="bg-transparent border-none text-light-200 hover:text-light-100 cursor-pointer flex items-center gap-1 text-xs"
+                            onClick={() => setShowCancelMenu(false)}
+                            className="bg-transparent border-none text-[#8b949e] hover:text-[#e6edf3] cursor-pointer flex items-center gap-1 text-sm"
                         >
-                            <ArrowLeft size={14} /> Back
+                            <ArrowLeft size={16} /> Back
                         </button>
                     </div>
-                    <div className="grid grid-cols-5 gap-2">
-                        {CANCEL_REASONS.map(opt => (
+                    <div className="grid grid-cols-6 gap-2">
+                        {CANCEL_REASONS.map(reason => (
                             <button
-                                key={opt.reason}
+                                key={reason}
                                 onClick={() => {
-                                    onCancel(opt.reason);
-                                    setShowCancelReasons(false);
+                                    onCancel(reason);
+                                    setShowCancelMenu(false);
                                 }}
                                 disabled={isProcessing}
-                                className={`py-2.5 px-2 rounded-md text-white text-[11px] font-medium cursor-pointer transition-colors disabled:opacity-50 ${opt.reason === 'PRICE'
-                                    ? 'bg-red-700 hover:bg-red-800'
-                                    : 'bg-dark-500 hover:bg-dark-400'
-                                    }`}
+                                className="py-3 px-3 rounded-lg text-[#e6edf3] text-sm font-medium cursor-pointer transition-colors disabled:opacity-50 bg-[#21262d] hover:bg-[#30363d] border border-[#30363d]"
                             >
-                                {opt.label}
+                                {reason}
                             </button>
                         ))}
                     </div>

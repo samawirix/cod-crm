@@ -277,10 +277,10 @@ export default function OrderBuilder({
                         onChange={(e) => onSalesActionChange(e.target.value as any)}
                         className="w-full p-3 bg-[#21262d] border border-[#30363d] rounded-lg text-[#e6edf3] text-sm focus:border-emerald-500 focus:outline-none cursor-pointer"
                     >
-                        <option value="normal">🛒 Normal Sale</option>
-                        <option value="upsell">⬆️ Upsell</option>
-                        <option value="cross_sell">➕ Cross-sell</option>
-                        <option value="exchange">🔄 Exchange</option>
+                        <option value="normal">Normal Sale</option>
+                        <option value="upsell">↑ Upsell</option>
+                        <option value="cross_sell">+ Cross-sell</option>
+                        <option value="exchange">⟳ Exchange</option>
                     </select>
                 </div>
             </div>
