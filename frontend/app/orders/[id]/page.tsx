@@ -390,8 +390,8 @@ export default function OrderDetailPage() {
                                                         <p className="text-white font-medium">{item.product_name}</p>
                                                         {item.sale_type && item.sale_type !== 'normal' && (
                                                             <span className={`text-xs px-1.5 py-0.5 rounded ${item.sale_type === 'cross-sell'
-                                                                    ? 'bg-amber-500/20 text-amber-400'
-                                                                    : 'bg-emerald-500/20 text-emerald-400'
+                                                                ? 'bg-amber-500/20 text-amber-400'
+                                                                : 'bg-emerald-500/20 text-emerald-400'
                                                                 }`}>
                                                                 {item.sale_type}
                                                             </span>
@@ -411,7 +411,7 @@ export default function OrderDetailPage() {
                                                     {(item.total || item.subtotal)?.toLocaleString()} MAD
                                                 </p>
                                                 {item.discount > 0 && (
-                                                    <p className="text-xs text-amber-400">-{item.discount} MAD</p>
+                                                    <p className="text-xs text-amber-400">-{item.discount?.toLocaleString()} MAD saved</p>
                                                 )}
                                             </div>
                                         </div>
