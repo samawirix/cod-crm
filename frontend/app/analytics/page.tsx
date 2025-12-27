@@ -30,6 +30,10 @@ import {
     useConversionFunnel,
     useCallStatistics
 } from '@/hooks/useAnalytics';
+import SalesBreakdownCards from './components/SalesBreakdownCards';
+import SalesTrendChart from './components/SalesTrendChart';
+import AgentLeaderboard from './components/AgentLeaderboard';
+import ProductPairsTable from './components/ProductPairsTable';
 
 const COLORS = ['#3b82f6', '#10b981', '#f59e0b', '#ef4444', '#8b5cf6', '#ec4899'];
 
@@ -37,6 +41,11 @@ const COLORS = ['#3b82f6', '#10b981', '#f59e0b', '#ef4444', '#8b5cf6', '#ec4899'
 
 export default function AnalyticsPage() {
     const [dateRange, setDateRange] = useState('30');
+    const [salesData, setSalesData] = useState<any>(null);
+    const [salesTrend, setSalesTrend] = useState<any>(null);
+    const [crossSellAgents, setCrossSellAgents] = useState<any>(null);
+    const [productPairs, setProductPairs] = useState<any>(null);
+    const [salesLoading, setSalesLoading] = useState(true);
 
     // Calculate dates based on selection
     const endDate = new Date().toISOString();
@@ -58,6 +67,32 @@ export default function AnalyticsPage() {
     const { data: callStats, isLoading: callsLoading } = useCallStatistics(startDate, endDate);
 
     const isLoading = statsLoading || leadsByDayLoading || sourceLoading || agentLoading || funnelLoading || callsLoading;
+
+    // Fetch sales analytics data
+    React.useEffect(() => {
+        const fetchSalesAnalytics = async () => {
+            setSalesLoading(true);
+            try {
+                const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000';
+                const [salesRes, trendRes, agentsRes, pairsRes] = await Promise.all([
+                    fetch(`${API_URL}/api/v1/analytics/sales-by-type`),
+                    fetch(`${API_URL}/api/v1/analytics/sales-trend?days=${dateRange}`),
+                    fetch(`${API_URL}/api/v1/analytics/agent-performance`),
+                    fetch(`${API_URL}/api/v1/analytics/product-pairs`),
+                ]);
+
+                if (salesRes.ok) setSalesData(await salesRes.json());
+                if (trendRes.ok) setSalesTrend(await trendRes.json());
+                if (agentsRes.ok) setCrossSellAgents(await agentsRes.json());
+                if (pairsRes.ok) setProductPairs(await pairsRes.json());
+            } catch (error) {
+                console.error('Failed to fetch sales analytics:', error);
+            } finally {
+                setSalesLoading(false);
+            }
+        };
+        fetchSalesAnalytics();
+    }, [dateRange]);
 
     // Mock data for demonstration when API is not available
     const mockLeadsByDay = leadsByDay || [
@@ -217,6 +252,42 @@ export default function AnalyticsPage() {
                     value={calls.interest_breakdown?.high || 0}
                     icon={TrendingUp}
                     color="text-blue-500"
+                />
+            </div>
+
+            {/* Sales Analytics Section */}
+            <div className="mb-6">
+                <h2 className="text-xl font-bold text-white mb-4 flex items-center gap-2">
+                    📊 Sales by Type (Cross-sell / Upsell)
+                </h2>
+                <SalesBreakdownCards
+                    totalRevenue={salesData?.total_revenue || 0}
+                    breakdown={salesData?.breakdown || {
+                        normal: { revenue: 0, count: 0, percentage: 0 },
+                        'cross-sell': { revenue: 0, count: 0, percentage: 0 },
+                        upsell: { revenue: 0, count: 0, percentage: 0 },
+                    }}
+                    isLoading={salesLoading}
+                />
+            </div>
+
+            {/* Sales Trend Chart */}
+            <div className="mb-6">
+                <SalesTrendChart
+                    data={salesTrend?.data || []}
+                    isLoading={salesLoading}
+                />
+            </div>
+
+            {/* Agent Leaderboard & Product Pairs */}
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
+                <AgentLeaderboard
+                    agents={crossSellAgents?.agents || []}
+                    isLoading={salesLoading}
+                />
+                <ProductPairsTable
+                    pairs={productPairs?.pairs || []}
+                    isLoading={salesLoading}
                 />
             </div>
 
