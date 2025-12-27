@@ -45,6 +45,7 @@ interface OrderItem {
     selected_variants?: { [key: string]: string };
     discount_percent?: number;
     discount_applied?: boolean;
+    sale_type?: string;  // normal, cross-sell, upsell
 }
 
 interface Courier {
@@ -581,7 +582,7 @@ export default function OrderBuilder({
                             quantity: 1,
                             unit_price: product.selling_price,
                             total_price: product.selling_price,
-                            selected_variants: { sale_type: 'cross-sell' },
+                            sale_type: 'cross-sell',
                         };
                         onOrderItemsChange([...orderItems, newItem]);
                     }}
