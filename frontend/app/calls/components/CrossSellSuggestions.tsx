@@ -48,32 +48,29 @@ export default function CrossSellSuggestions({
             setIsLoading(true);
             try {
                 const token = localStorage.getItem('access_token');
-                const allSuggestions: Product[] = [];
-                const seenIds = new Set<number>();
                 const cartProductIds = new Set(cartItems.map(item => item.product_id));
 
-                for (const item of cartItems) {
-                    const response = await fetch(
-                        `${apiUrl}/api/v1/products/${item.product_id}/cross-sells`,
-                        {
-                            headers: { 'Authorization': `Bearer ${token}` }
-                        }
+                // Only get cross-sells from the FIRST product (main product)
+                const mainProduct = cartItems[0];
+                const response = await fetch(
+                    `${apiUrl}/api/v1/products/${mainProduct.product_id}/cross-sells`,
+                    {
+                        headers: { 'Authorization': `Bearer ${token}` }
+                    }
+                );
+
+                if (response.ok) {
+                    const crossSells: Product[] = await response.json();
+
+                    // Filter out products already in cart
+                    const filteredSuggestions = crossSells.filter(
+                        (product) => !cartProductIds.has(product.id) && !product.is_out_of_stock
                     );
 
-                    if (response.ok) {
-                        const crossSells: Product[] = await response.json();
-
-                        for (const product of crossSells) {
-                            // Only add if not already in cart and in stock
-                            if (!seenIds.has(product.id) && !cartProductIds.has(product.id) && !product.is_out_of_stock) {
-                                seenIds.add(product.id);
-                                allSuggestions.push(product);
-                            }
-                        }
-                    }
+                    setSuggestions(filteredSuggestions.slice(0, 4));
+                } else {
+                    setSuggestions([]);
                 }
-
-                setSuggestions(allSuggestions.slice(0, 4));
             } catch (error) {
                 console.error('Failed to fetch cross-sell suggestions:', error);
                 setSuggestions([]);

@@ -43,6 +43,8 @@ interface OrderItem {
     unit_price: number;
     total_price: number;
     selected_variants?: { [key: string]: string };
+    discount_percent?: number;
+    discount_applied?: boolean;
 }
 
 interface Courier {
@@ -187,8 +189,8 @@ export default function OrderBuilder({
         return parts.length > 0 ? parts.join(' / ') : variant.variant_name;
     };
 
-    // Add to order
-    const addToOrder = () => {
+    // Add to order - WITH QUANTITY DISCOUNT SUPPORT
+    const addToOrder = async () => {
         if (!selectedProduct) return;
 
         // Determine price and label based on variant
@@ -221,13 +223,40 @@ export default function OrderBuilder({
             productName = selectedProduct.name;
         }
 
+        // Check for quantity discounts if qty > 1
+        let finalPrice = price * quantity;
+        let discountPercent = 0;
+        let discountApplied = false;
+
+        if (quantity > 1) {
+            try {
+                const token = localStorage.getItem('access_token');
+                const response = await fetch(
+                    `http://localhost:8000/api/v1/products/${selectedProduct.id}/calculate-price?quantity=${quantity}`,
+                    { headers: { 'Authorization': `Bearer ${token}` } }
+                );
+                if (response.ok) {
+                    const priceData = await response.json();
+                    if (priceData.discount_percent > 0) {
+                        finalPrice = priceData.final_price;
+                        discountPercent = priceData.discount_percent;
+                        discountApplied = true;
+                    }
+                }
+            } catch (error) {
+                console.error('Failed to calculate discounted price:', error);
+            }
+        }
+
         const newItem: OrderItem = {
             product_id: selectedProduct.id,
             product_name: productName,
             quantity,
             unit_price: price,
-            total_price: price * quantity,
+            total_price: finalPrice,
             selected_variants: variantInfo,
+            discount_percent: discountPercent,
+            discount_applied: discountApplied,
         };
 
         onOrderItemsChange([...orderItems, newItem]);
@@ -243,16 +272,43 @@ export default function OrderBuilder({
     };
 
     // ═══════════════════════════════════════════════════════════════
-    // NEW: Update item quantity in cart
+    // Update item quantity in cart - WITH QUANTITY DISCOUNT SUPPORT
     // ═══════════════════════════════════════════════════════════════
-    const updateItemQuantity = (index: number, newQty: number) => {
+    const updateItemQuantity = async (index: number, newQty: number) => {
         if (newQty < 1) return; // Minimum 1
+
+        const item = orderItems[index];
+        let finalPrice = item.unit_price * newQty;
+        let discountPercent = 0;
+        let discountApplied = false;
+
+        // Check for quantity discounts from API
+        try {
+            const token = localStorage.getItem('access_token');
+            const response = await fetch(
+                `http://localhost:8000/api/v1/products/${item.product_id}/calculate-price?quantity=${newQty}`,
+                { headers: { 'Authorization': `Bearer ${token}` } }
+            );
+
+            if (response.ok) {
+                const priceData = await response.json();
+                if (priceData.discount_percent > 0) {
+                    finalPrice = priceData.final_price;
+                    discountPercent = priceData.discount_percent;
+                    discountApplied = true;
+                }
+            }
+        } catch (error) {
+            console.error('Failed to calculate discounted price:', error);
+        }
 
         const updated = [...orderItems];
         updated[index] = {
             ...updated[index],
             quantity: newQty,
-            total_price: updated[index].unit_price * newQty,
+            total_price: finalPrice,
+            discount_percent: discountPercent,
+            discount_applied: discountApplied,
         };
         onOrderItemsChange(updated);
     };
@@ -454,10 +510,18 @@ export default function OrderBuilder({
                 <div className="space-y-2">
                     {orderItems.map((item, idx) => (
                         <div key={idx} className="flex items-center justify-between p-2.5 bg-card border border-border rounded-lg">
-                            {/* Product Name */}
-                            <span className="text-foreground text-sm flex-1 truncate mr-2">
-                                {item.product_name}
-                            </span>
+                            {/* Product Name + Discount Badge */}
+                            <div className="flex items-center gap-2 flex-1 min-w-0 mr-2">
+                                <span className="text-foreground text-sm truncate">
+                                    {item.product_name}
+                                </span>
+                                {/* Show discount badge if discount applied */}
+                                {item.discount_applied && (
+                                    <span className="text-xs px-1.5 py-0.5 rounded bg-amber-500/20 text-amber-500 flex-shrink-0">
+                                        -{item.discount_percent}%
+                                    </span>
+                                )}
+                            </div>
 
                             {/* Quantity +/- Controls */}
                             <div className="flex items-center gap-2">
