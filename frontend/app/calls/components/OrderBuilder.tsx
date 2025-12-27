@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useState } from 'react';
-import { Package, Flame, Repeat, X } from 'lucide-react';
+import { Package, Flame, Repeat, X, Plus, Minus } from 'lucide-react';
 
 // ═══════════════════════════════════════════════════════════════
 // TYPES
@@ -241,6 +241,21 @@ export default function OrderBuilder({
         onOrderItemsChange(orderItems.filter((_, i) => i !== index));
     };
 
+    // ═══════════════════════════════════════════════════════════════
+    // NEW: Update item quantity in cart
+    // ═══════════════════════════════════════════════════════════════
+    const updateItemQuantity = (index: number, newQty: number) => {
+        if (newQty < 1) return; // Minimum 1
+        
+        const updated = [...orderItems];
+        updated[index] = {
+            ...updated[index],
+            quantity: newQty,
+            total_price: updated[index].unit_price * newQty,
+        };
+        onOrderItemsChange(updated);
+    };
+
     return (
         <div className="space-y-3">
             {/* Upsell Badge */}
@@ -431,17 +446,47 @@ export default function OrderBuilder({
                 </div>
             )}
 
-            {/* Order Items (Cart) */}
+            {/* ═══════════════════════════════════════════════════════════════ */}
+            {/* Order Items (Cart) - WITH QUANTITY +/- CONTROLS                 */}
+            {/* ═══════════════════════════════════════════════════════════════ */}
             {orderItems.length > 0 && (
-                <div className="space-y-1">
+                <div className="space-y-2">
                     {orderItems.map((item, idx) => (
-                        <div key={idx} className="flex items-center justify-between p-2 bg-card rounded text-xs">
-                            <span className="text-foreground">{item.product_name} ×{item.quantity}</span>
+                        <div key={idx} className="flex items-center justify-between p-2.5 bg-card border border-border rounded-lg">
+                            {/* Product Name */}
+                            <span className="text-foreground text-sm flex-1 truncate mr-2">
+                                {item.product_name}
+                            </span>
+                            
+                            {/* Quantity +/- Controls */}
                             <div className="flex items-center gap-2">
-                                <span className="text-emerald-500 font-semibold">{(Number(item.total_price) || 0).toFixed(0)} MAD</span>
+                                <div className="flex items-center border border-border rounded overflow-hidden">
+                                    <button
+                                        onClick={() => updateItemQuantity(idx, item.quantity - 1)}
+                                        className="w-7 h-7 bg-secondary text-foreground hover:bg-muted flex items-center justify-center transition-colors"
+                                    >
+                                        <Minus size={12} />
+                                    </button>
+                                    <span className="w-8 text-center text-sm font-semibold text-foreground">
+                                        {item.quantity}
+                                    </span>
+                                    <button
+                                        onClick={() => updateItemQuantity(idx, item.quantity + 1)}
+                                        className="w-7 h-7 bg-secondary text-foreground hover:bg-muted flex items-center justify-center transition-colors"
+                                    >
+                                        <Plus size={12} />
+                                    </button>
+                                </div>
+                                
+                                {/* Price */}
+                                <span className="text-emerald-500 font-semibold text-sm min-w-[70px] text-right">
+                                    {(Number(item.total_price) || 0).toFixed(0)} MAD
+                                </span>
+                                
+                                {/* Remove Button */}
                                 <button
                                     onClick={() => removeItem(idx)}
-                                    className="text-red-500 hover:text-red-400 cursor-pointer"
+                                    className="p-1 text-red-500 hover:text-red-400 hover:bg-red-500/10 rounded transition-colors"
                                 >
                                     <X size={14} />
                                 </button>

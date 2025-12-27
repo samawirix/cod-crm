@@ -3,9 +3,11 @@
 import { useState, useEffect, useRef } from 'react';
 import { useRouter, useParams } from 'next/navigation';
 import {
-    ArrowLeft, Save, X, Plus, Package, DollarSign, Tag, Image as ImageIcon, Trash2, Upload, Check, TrendingUp
+    ArrowLeft, Save, X, Plus, Package, DollarSign, Tag, Image as ImageIcon, Trash2, Upload, Check, TrendingUp, Sparkles
 } from 'lucide-react';
 import { VariantOptionEditor, VariantList } from '@/components/products';
+import CrossSellSelector from '@/app/inventory/components/CrossSellSelector';
+import QuantityDiscountBuilder from '@/app/inventory/components/QuantityDiscountBuilder';
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000';
 
@@ -22,6 +24,14 @@ interface Product {
     description?: string;
     image_url?: string;
     has_variants?: boolean;
+    is_active?: boolean;
+    cross_sell_ids?: number[];
+    quantity_discounts?: { min_qty: number; discount_percent: number }[];
+}
+
+interface DiscountTier {
+    min_qty: number;
+    discount_percent: number;
 }
 
 interface Variant {
@@ -89,6 +99,13 @@ export default function EditProductPage() {
     const [showSuccess, setShowSuccess] = useState(false);
     const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false);
 
+    // Cross-sell & Quantity Discounts (Phase 2)
+    const [crossSellIds, setCrossSellIds] = useState<number[]>([]);
+    const [quantityDiscounts, setQuantityDiscounts] = useState<DiscountTier[]>([]);
+    const [allProducts, setAllProducts] = useState<Product[]>([]);
+    const [savingCrossSells, setSavingCrossSells] = useState(false);
+    const [savingDiscounts, setSavingDiscounts] = useState(false);
+
     // Load product data
     useEffect(() => {
         const fetchProduct = async () => {
@@ -113,6 +130,8 @@ export default function EditProductPage() {
                 setLowStockThreshold(productData.low_stock_threshold?.toString() || '10');
                 setDescription(productData.description || '');
                 setImageUrl(productData.image_url || '');
+                setCrossSellIds(productData.cross_sell_ids || []);
+                setQuantityDiscounts(productData.quantity_discounts || []);
 
                 // Fetch variants
                 const variantsRes = await fetch(`${API_URL}/api/v1/products/${productId}/variants`, {
@@ -131,7 +150,23 @@ export default function EditProductPage() {
             }
         };
 
+        const fetchAllProducts = async () => {
+            try {
+                const token = localStorage.getItem('access_token');
+                const res = await fetch(`${API_URL}/api/v1/products?page_size=100`, {
+                    headers: { 'Authorization': `Bearer ${token}` }
+                });
+                if (res.ok) {
+                    const data = await res.json();
+                    setAllProducts(data.products || []);
+                }
+            } catch (err) {
+                console.error('Failed to fetch products for cross-sell');
+            }
+        };
+
         fetchProduct();
+        fetchAllProducts();
     }, [productId]);
 
     // Update existing variant field
@@ -320,6 +355,48 @@ export default function EditProductPage() {
         } catch (err) {
             setUploadProgress(0);
             alert('Failed to upload image. Please try URL instead.');
+        }
+    };
+
+    // Update cross-sell products
+    const handleUpdateCrossSells = async (ids: number[]) => {
+        setCrossSellIds(ids);
+        setSavingCrossSells(true);
+        try {
+            const token = localStorage.getItem('access_token');
+            await fetch(`${API_URL}/api/v1/products/${productId}/cross-sells`, {
+                method: 'PUT',
+                headers: {
+                    'Authorization': `Bearer ${token}`,
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify(ids)
+            });
+        } catch (err) {
+            console.error('Failed to update cross-sells');
+        } finally {
+            setSavingCrossSells(false);
+        }
+    };
+
+    // Update quantity discounts
+    const handleUpdateQuantityDiscounts = async (discounts: DiscountTier[]) => {
+        setQuantityDiscounts(discounts);
+        setSavingDiscounts(true);
+        try {
+            const token = localStorage.getItem('access_token');
+            await fetch(`${API_URL}/api/v1/products/${productId}/quantity-discounts`, {
+                method: 'PUT',
+                headers: {
+                    'Authorization': `Bearer ${token}`,
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify(discounts)
+            });
+        } catch (err) {
+            console.error('Failed to update quantity discounts');
+        } finally {
+            setSavingDiscounts(false);
         }
     };
 
@@ -716,6 +793,34 @@ export default function EditProductPage() {
                                         />
                                     </div>
                                 )}
+                            </div>
+
+                            {/* Sales Optimization (Phase 2) */}
+                            <div className="bg-gray-800 rounded-xl p-4 sm:p-6 border border-gray-700">
+                                <div className="flex items-center gap-2 mb-6">
+                                    <Sparkles className="w-5 h-5 text-amber-400" />
+                                    <h2 className="text-lg font-semibold text-white">Sales Optimization</h2>
+                                    <span className="text-xs text-gray-400 bg-amber-500/10 text-amber-400 px-2 py-0.5 rounded">Phase 2</span>
+                                </div>
+
+                                <div className="space-y-6">
+                                    {/* Cross-sell Products */}
+                                    <CrossSellSelector
+                                        productId={parseInt(productId)}
+                                        currentCrossSellIds={crossSellIds}
+                                        allProducts={allProducts}
+                                        onUpdate={handleUpdateCrossSells}
+                                        isLoading={savingCrossSells}
+                                    />
+
+                                    {/* Quantity Discounts */}
+                                    <QuantityDiscountBuilder
+                                        currentDiscounts={quantityDiscounts}
+                                        onUpdate={handleUpdateQuantityDiscounts}
+                                        basePrice={parseFloat(sellingPrice) || 0}
+                                        isLoading={savingDiscounts}
+                                    />
+                                </div>
                             </div>
                         </div>
 

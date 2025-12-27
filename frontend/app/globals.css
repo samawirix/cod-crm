@@ -15,6 +15,16 @@
   --color-slate-100: #f1f5f9;
   /* Primary Text */
 
+  /* GitHub Dark Theme Colors (for Call Center) */
+  --color-dark-900: #0d1117;  /* Main background */
+  --color-dark-800: #161b22;  /* Cards background */
+  --color-dark-700: #21262d;  /* Elevated surfaces */
+  --color-dark-600: #30363d;  /* Borders */
+  
+  /* Light Text Colors */
+  --color-light-100: #e6edf3;  /* Primary text */
+  --color-light-200: #8b949e;  /* Secondary text */
+
   --color-primary-blue: #2563eb;
   /* Trustworthy Blue */
   --color-primary-light: #60a5fa;
@@ -24,6 +34,10 @@
   /* Amber 500 */
   --color-danger: #ef4444;
   /* Red 500 */
+  
+  /* Additional Status Colors */
+  --color-info: #58a6ff;
+  --color-purple: #a371f7;
 
   /* Semantic Mapping */
   --color-background: var(--color-slate-950);
