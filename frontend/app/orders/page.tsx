@@ -1,6 +1,7 @@
 'use client';
 
 import React, { useState } from 'react';
+import { useRouter } from 'next/navigation';
 import {
     Package, Search, MoreVertical, Eye, Truck,
     CheckCircle, XCircle, RotateCcw, Clock, DollarSign,
@@ -72,6 +73,7 @@ const PAYMENT_STATUSES = [
 ];
 
 export default function OrdersPage() {
+    const router = useRouter();
     const [page, setPage] = useState(1);
     const [search, setSearch] = useState('');
     const [statusFilter, setStatusFilter] = useState('all');
@@ -431,7 +433,10 @@ export default function OrdersPage() {
                                                     </Button>
                                                 </DropdownMenuTrigger>
                                                 <DropdownMenuContent align="end" className="bg-slate-900 border-slate-800">
-                                                    <DropdownMenuItem className="text-slate-200 hover:bg-slate-800 cursor-pointer">
+                                                    <DropdownMenuItem
+                                                        className="text-slate-200 hover:bg-slate-800 cursor-pointer"
+                                                        onClick={() => router.push(`/orders/${order.id}`)}
+                                                    >
                                                         <Eye className="h-4 w-4 mr-2 text-slate-400" />
                                                         View Details
                                                     </DropdownMenuItem>

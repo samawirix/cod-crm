@@ -158,23 +158,35 @@ class OrderListResponse(BaseModel):
 
 class OrderItemCreate(BaseModel):
     """Schema for creating an order item"""
-    product_id: int
+    product_id: Optional[int] = None
+    product_name: str
+    product_sku: Optional[str] = None
+    variant_id: Optional[int] = None
+    variant_name: Optional[str] = None
+    unit_price: float
+    cost_price: Optional[float] = 0
     quantity: int = 1
-    discount: float = 0
+    discount: Optional[float] = 0
+    total_price: Optional[float] = None
+    sale_type: Optional[str] = "normal"  # normal, cross-sell, upsell
 
 
 class OrderItemResponse(BaseModel):
     """Schema for order item response"""
     id: int
-    product_id: int
+    order_id: int
+    product_id: Optional[int] = None
     product_name: str
-    product_sku: str
+    product_sku: Optional[str] = None
+    variant_id: Optional[int] = None
+    variant_name: Optional[str] = None
     unit_price: float
-    cost_price: float
+    cost_price: float = 0
     quantity: int
     subtotal: float
-    discount: float
+    discount: float = 0
     total: float
+    sale_type: Optional[str] = "normal"
 
     class Config:
         from_attributes = True
@@ -182,15 +194,25 @@ class OrderItemResponse(BaseModel):
 
 class OrderCreateWithItems(BaseModel):
     """Schema for creating order with multiple products"""
-    lead_id: int
-    items: List[OrderItemCreate]  # Multiple products
-    shipping_cost: float = 0
-    discount: float = 0  # Order-level discount
-    shipping_address: str
-    shipping_city: str
-    shipping_region: Optional[str] = None
-    shipping_postal_code: Optional[str] = None
-    order_notes: Optional[str] = None
+    lead_id: Optional[int] = None
+    customer_name: str
+    customer_phone: str
+    customer_email: Optional[str] = None
+    delivery_address: str
+    city: str
+    zone: Optional[str] = None
+    postal_code: Optional[str] = None
+    courier: Optional[str] = "AMANA"
+    delivery_charges: float = 0
+    notes: Optional[str] = None
+    utm_source: Optional[str] = None
+    utm_medium: Optional[str] = None
+    utm_campaign: Optional[str] = None
+    sales_action: Optional[str] = "normal"
+    is_exchange: Optional[bool] = False
+    original_order_ref: Optional[str] = None
+    exchange_reason: Optional[str] = None
+    items: List[OrderItemCreate]
 
 
 class OrderDetailWithItems(OrderResponse):
@@ -201,3 +223,4 @@ class OrderDetailWithItems(OrderResponse):
     items_subtotal: float = 0
     total_cost: float = 0
     total_profit: float = 0
+

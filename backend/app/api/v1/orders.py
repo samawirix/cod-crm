@@ -78,7 +78,9 @@ class CallCenterOrderItem(BaseModel):
     product_name: Optional[str] = None
     quantity: int = 1
     unit_price: float = 0
+    total_price: Optional[float] = None
     selected_variants: Optional[dict] = None
+    sale_type: Optional[str] = "normal"  # normal, cross-sell, upsell
 
 class CallCenterOrderCreate(BaseModel):
     """Flexible schema for Call Center order creation"""
@@ -170,10 +172,13 @@ async def create_call_center_order(
             "quantity": item.quantity,
             "unit_price": unit_price,
             "cost_price": cost_price,
-            "total": item_total,
+            "total": item.total_price if item.total_price and item.total_price > 0 else item_total,
             "subtotal": item_total,
             "discount": 0,
             "variants": str(item.selected_variants) if item.selected_variants else None,
+            "sale_type": item.sale_type or "normal",
+            "variant_id": item.selected_variants.get("variant_id") if item.selected_variants else None,
+            "variant_name": item.selected_variants.get("variant_name") if item.selected_variants else None,
         })
     
     # Calculate totals
@@ -221,6 +226,9 @@ async def create_call_center_order(
             subtotal=item_data["subtotal"],
             discount=item_data.get("discount", 0),
             total=item_data["total"],
+            sale_type=item_data.get("sale_type", "normal"),
+            variant_id=item_data.get("variant_id"),
+            variant_name=item_data.get("variant_name"),
         )
         db.add(order_item)
     
@@ -475,15 +483,91 @@ def get_order_stats(
         }
     }
 
-@router.get("/{order_id}", response_model=OrderResponse)
+@router.get("/{order_id}")
 def get_order(order_id: int, db: Session = Depends(get_db)):
     """
-    Get a specific order by ID
+    Get a specific order by ID with items
     """
     order = db.query(Order).filter(Order.id == order_id).first()
     if not order:
         raise HTTPException(status_code=404, detail="Order not found")
-    return order
+    
+    # Get order items
+    items = db.query(OrderItem).filter(OrderItem.order_id == order_id).all()
+    
+    # Build response with items
+    response = {
+        "id": order.id,
+        "order_number": order.order_number or "",
+        "lead_id": order.lead_id,
+        "customer_name": order.customer_name or "",
+        "customer_phone": order.customer_phone or "",
+        "customer_email": order.customer_email,
+        "delivery_address": order.delivery_address or "",
+        "city": order.city or "",
+        "postal_code": order.postal_code,
+        "product_name": order.product_name or "",
+        "product_sku": getattr(order, 'product_sku', None),
+        "quantity": order.quantity or 1,
+        "unit_price": order.unit_price or 0.0,
+        "subtotal": order.subtotal or 0.0,
+        "delivery_charges": order.delivery_charges or 0.0,
+        "total_amount": order.total_amount or 0.0,
+        "status": order.status.value if order.status else "PENDING",
+        "payment_status": order.payment_status.value if order.payment_status else "PENDING",
+        "is_confirmed": order.is_confirmed or False,
+        "confirmed_by": order.confirmed_by,
+        "confirmed_at": order.confirmed_at,
+        "courier": order.courier,
+        "courier_tracking_url": order.courier_tracking_url,
+        "tracking_number": order.tracking_number,
+        "delivery_partner": order.delivery_partner,
+        "delivery_attempts": order.delivery_attempts or 0,
+        "shipped_at": order.shipped_at,
+        "delivered_at": order.delivered_at,
+        "delivery_failed": order.delivery_failed or False,
+        "failure_reason": order.failure_reason,
+        "payment_collected": order.payment_collected or False,
+        "cash_collected": order.cash_collected,
+        "is_returned": order.is_returned or False,
+        "return_reason": order.return_reason,
+        "notes": order.notes,
+        "created_at": order.created_at,
+        "updated_at": order.updated_at,
+        # Logistics fields
+        "utm_source": order.utm_source,
+        "utm_medium": order.utm_medium,
+        "utm_campaign": order.utm_campaign,
+        "sales_action": order.sales_action,
+        "shipping_company": order.shipping_company,
+        "is_exchange": order.is_exchange or False,
+        "original_order_ref": order.original_order_ref,
+        "exchange_reason": order.exchange_reason,
+        "estimated_delivery_date": order.estimated_delivery_date,
+        "actual_delivery_date": order.actual_delivery_date,
+        # Items array
+        "items": [
+            {
+                "id": item.id,
+                "order_id": item.order_id,
+                "product_id": item.product_id,
+                "product_name": item.product_name,
+                "product_sku": item.product_sku,
+                "variant_id": item.variant_id,
+                "variant_name": item.variant_name,
+                "unit_price": item.unit_price,
+                "cost_price": item.cost_price or 0,
+                "quantity": item.quantity,
+                "subtotal": item.subtotal,
+                "discount": item.discount or 0,
+                "total": item.total,
+                "sale_type": item.sale_type or "normal",
+            }
+            for item in items
+        ],
+    }
+    
+    return response
 
 @router.put("/{order_id}", response_model=OrderResponse)
 def update_order(

@@ -359,45 +359,95 @@ export default function OrderDetailPage() {
                         </CardContent>
                     </Card>
 
-                    {/* Product Details */}
+                    {/* Product Details - Now shows items array */}
                     <Card className="glass-card border-slate-700/50">
                         <CardHeader>
                             <CardTitle className="text-white flex items-center gap-2">
                                 <Package className="h-5 w-5 text-purple-400" />
                                 Order Items
+                                {order.items && order.items.length > 0 && (
+                                    <span className="text-xs bg-slate-800 text-slate-400 px-2 py-0.5 rounded ml-2">
+                                        {order.items.length} item{order.items.length > 1 ? 's' : ''}
+                                    </span>
+                                )}
                             </CardTitle>
                         </CardHeader>
                         <CardContent>
-                            <div className="bg-slate-900/50 rounded-lg p-6 border border-slate-800/50">
-                                <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
-                                    <div className="flex items-center gap-4">
-                                        <div className="h-16 w-16 rounded-md bg-slate-800 flex items-center justify-center border border-slate-700">
-                                            <Package className="h-8 w-8 text-slate-500" />
+                            <div className="space-y-3">
+                                {order.items && order.items.length > 0 ? (
+                                    // Render items from items array
+                                    order.items.map((item: any, index: number) => (
+                                        <div
+                                            key={item.id || index}
+                                            className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 bg-slate-900/50 rounded-lg p-4 border border-slate-800/50"
+                                        >
+                                            <div className="flex items-center gap-4">
+                                                <div className="h-12 w-12 rounded-md bg-slate-800 flex items-center justify-center border border-slate-700">
+                                                    <Package className="h-6 w-6 text-slate-500" />
+                                                </div>
+                                                <div>
+                                                    <div className="flex items-center gap-2">
+                                                        <p className="text-white font-medium">{item.product_name}</p>
+                                                        {item.sale_type && item.sale_type !== 'normal' && (
+                                                            <span className={`text-xs px-1.5 py-0.5 rounded ${item.sale_type === 'cross-sell'
+                                                                    ? 'bg-amber-500/20 text-amber-400'
+                                                                    : 'bg-emerald-500/20 text-emerald-400'
+                                                                }`}>
+                                                                {item.sale_type}
+                                                            </span>
+                                                        )}
+                                                    </div>
+                                                    <div className="flex items-center gap-2 text-slate-500 text-sm">
+                                                        {item.product_sku && <span>SKU: {item.product_sku}</span>}
+                                                        {item.variant_name && <span>• {item.variant_name}</span>}
+                                                    </div>
+                                                </div>
+                                            </div>
+                                            <div className="text-right">
+                                                <p className="text-slate-400 text-sm">
+                                                    {item.unit_price?.toLocaleString()} MAD × {item.quantity}
+                                                </p>
+                                                <p className="text-white font-semibold">
+                                                    {(item.total || item.subtotal)?.toLocaleString()} MAD
+                                                </p>
+                                                {item.discount > 0 && (
+                                                    <p className="text-xs text-amber-400">-{item.discount} MAD</p>
+                                                )}
+                                            </div>
                                         </div>
-                                        <div>
-                                            <p className="text-white font-medium text-lg">{order.product_name}</p>
-                                            <p className="text-slate-500 text-sm">SKU: {order.product_sku || 'N/A'}</p>
+                                    ))
+                                ) : (
+                                    // Fallback for old orders without items array
+                                    <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 bg-slate-900/50 rounded-lg p-6 border border-slate-800/50">
+                                        <div className="flex items-center gap-4">
+                                            <div className="h-16 w-16 rounded-md bg-slate-800 flex items-center justify-center border border-slate-700">
+                                                <Package className="h-8 w-8 text-slate-500" />
+                                            </div>
+                                            <div>
+                                                <p className="text-white font-medium text-lg">{order.product_name}</p>
+                                                <p className="text-slate-500 text-sm">SKU: {order.product_sku || 'N/A'}</p>
+                                            </div>
+                                        </div>
+                                        <div className="text-right">
+                                            <p className="text-white font-medium text-lg">Qty: {order.quantity}</p>
+                                            <p className="text-indigo-400 text-sm font-mono">{order.unit_price?.toLocaleString()} MAD / unit</p>
                                         </div>
                                     </div>
-                                    <div className="text-right">
-                                        <p className="text-white font-medium text-lg">Qty: {order.quantity}</p>
-                                        <p className="text-indigo-400 text-sm font-mono">{order.unit_price.toLocaleString()} MAD / unit</p>
-                                    </div>
-                                </div>
+                                )}
                             </div>
 
                             <div className="mt-6 pt-6 border-t border-slate-800 space-y-3">
                                 <div className="flex justify-between text-slate-400 font-medium">
                                     <span>Subtotal</span>
-                                    <span>{order.subtotal.toLocaleString()} MAD</span>
+                                    <span>{order.subtotal?.toLocaleString()} MAD</span>
                                 </div>
                                 <div className="flex justify-between text-slate-400 font-medium">
                                     <span>Delivery Charges</span>
-                                    <span>{order.delivery_charges.toLocaleString()} MAD</span>
+                                    <span>{order.delivery_charges?.toLocaleString()} MAD</span>
                                 </div>
                                 <div className="flex justify-between items-center text-white font-bold text-xl pt-4 border-t border-slate-800 mt-4">
                                     <span>Total (COD)</span>
-                                    <span className="text-emerald-400 drop-shadow-sm">{order.total_amount.toLocaleString()} MAD</span>
+                                    <span className="text-emerald-400 drop-shadow-sm">{order.total_amount?.toLocaleString()} MAD</span>
                                 </div>
                             </div>
                         </CardContent>
