@@ -77,6 +77,17 @@ class Product(Base):
     call_script = Column(Text, nullable=True)  # Script for calling customers
     confirmation_script = Column(Text, nullable=True)  # Script for order confirmation
     
+    # ═══════════════════════════════════════════════════════════════
+    # CROSS-SELL & QUANTITY DISCOUNTS (Phase 2)
+    # ═══════════════════════════════════════════════════════════════
+    # Cross-sell: List of product IDs to suggest when this product is in cart
+    # Example: [5, 12, 23] - IDs of related products
+    cross_sell_ids = Column(JSON, nullable=True, default=list)
+    
+    # Quantity Discounts: Tiered pricing based on quantity
+    # Example: [{"min_qty": 2, "discount_percent": 10}, {"min_qty": 3, "discount_percent": 15}]
+    quantity_discounts = Column(JSON, nullable=True, default=list)
+    
     # Stats
     total_sold = Column(Integer, default=0)
     total_revenue = Column(Float, default=0)

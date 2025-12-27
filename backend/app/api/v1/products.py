@@ -11,7 +11,8 @@ from app.schemas.product import (
     ProductCreate, ProductUpdate, ProductResponse, ProductListResponse,
     CategoryCreate, CategoryUpdate, CategoryResponse,
     StockAdjustment, StockMovementResponse, InventoryStats,
-    ProductVariantCreate, ProductVariantResponse
+    ProductVariantCreate, ProductVariantResponse,
+    CrossSellProductResponse, QuantityDiscount, PriceCalculationResponse
 )
 
 router = APIRouter()
@@ -357,3 +358,120 @@ async def delete_product_variant(
     
     return {"message": "Variant deleted successfully"}
 
+
+# ═══════════════════════════════════════════════════════════════
+# CROSS-SELL & QUANTITY DISCOUNT ENDPOINTS (Phase 2)
+# ═══════════════════════════════════════════════════════════════
+
+@router.get("/{product_id}/cross-sells", response_model=List[CrossSellProductResponse])
+async def get_cross_sell_products(
+    product_id: int,
+    db: Session = Depends(get_db),
+    current_user = Depends(get_current_user)
+):
+    """Get cross-sell product suggestions for a specific product"""
+    product = db.query(Product).filter(Product.id == product_id).first()
+    if not product:
+        raise HTTPException(status_code=404, detail="Product not found")
+    
+    if not product.cross_sell_ids:
+        return []
+    
+    cross_sell_products = db.query(Product).filter(
+        Product.id.in_(product.cross_sell_ids),
+        Product.is_active == True
+    ).all()
+    
+    return cross_sell_products
+
+
+@router.put("/{product_id}/cross-sells", response_model=ProductResponse)
+async def update_cross_sell_products(
+    product_id: int,
+    cross_sell_ids: List[int],
+    db: Session = Depends(get_db),
+    current_user = Depends(get_current_user)
+):
+    """Update cross-sell product IDs for a specific product"""
+    product = db.query(Product).filter(Product.id == product_id).first()
+    if not product:
+        raise HTTPException(status_code=404, detail="Product not found")
+    
+    # Validate that all cross-sell IDs exist
+    if cross_sell_ids:
+        existing_ids = db.query(Product.id).filter(Product.id.in_(cross_sell_ids)).all()
+        existing_ids = [id[0] for id in existing_ids]
+        invalid_ids = set(cross_sell_ids) - set(existing_ids)
+        if invalid_ids:
+            raise HTTPException(
+                status_code=400, 
+                detail=f"Invalid product IDs: {invalid_ids}"
+            )
+        # Remove self-reference if present
+        cross_sell_ids = [id for id in cross_sell_ids if id != product_id]
+    
+    product.cross_sell_ids = cross_sell_ids
+    db.commit()
+    db.refresh(product)
+    return product
+
+
+@router.put("/{product_id}/quantity-discounts", response_model=ProductResponse)
+async def update_quantity_discounts(
+    product_id: int,
+    discounts: List[QuantityDiscount],
+    db: Session = Depends(get_db),
+    current_user = Depends(get_current_user)
+):
+    """Update quantity discount tiers for a specific product"""
+    product = db.query(Product).filter(Product.id == product_id).first()
+    if not product:
+        raise HTTPException(status_code=404, detail="Product not found")
+    
+    # Sort discounts by min_qty ascending
+    sorted_discounts = sorted(
+        [d.model_dump() for d in discounts], 
+        key=lambda x: x["min_qty"]
+    )
+    
+    product.quantity_discounts = sorted_discounts
+    db.commit()
+    db.refresh(product)
+    return product
+
+
+@router.get("/{product_id}/calculate-price", response_model=PriceCalculationResponse)
+async def calculate_discounted_price(
+    product_id: int,
+    quantity: int = Query(1, ge=1),
+    db: Session = Depends(get_db),
+    current_user = Depends(get_current_user)
+):
+    """Calculate price with quantity discount applied"""
+    product = db.query(Product).filter(Product.id == product_id).first()
+    if not product:
+        raise HTTPException(status_code=404, detail="Product not found")
+    
+    base_price = product.selling_price
+    discount_percent = 0.0
+    
+    # Find applicable discount tier
+    if product.quantity_discounts:
+        for tier in sorted(product.quantity_discounts, key=lambda x: x["min_qty"], reverse=True):
+            if quantity >= tier["min_qty"]:
+                discount_percent = tier["discount_percent"]
+                break
+    
+    subtotal = base_price * quantity
+    discount_amount = subtotal * (discount_percent / 100)
+    final_price = subtotal - discount_amount
+    
+    return {
+        "product_id": product_id,
+        "quantity": quantity,
+        "unit_price": base_price,
+        "subtotal": round(subtotal, 2),
+        "discount_percent": discount_percent,
+        "discount_amount": round(discount_amount, 2),
+        "final_price": round(final_price, 2)
+    }

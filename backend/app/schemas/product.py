@@ -1,6 +1,20 @@
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 from typing import Optional, List, Dict, Any
 from datetime import datetime
+
+
+# ═══════════════════════════════════════════════════════════════
+# QUANTITY DISCOUNT SCHEMA (Phase 2)
+# ═══════════════════════════════════════════════════════════════
+class QuantityDiscount(BaseModel):
+    """Quantity-based discount tier"""
+    min_qty: int = Field(..., ge=2, description="Minimum quantity to trigger discount")
+    discount_percent: float = Field(..., ge=0, le=100, description="Discount percentage (0-100)")
+    
+    class Config:
+        json_schema_extra = {
+            "example": {"min_qty": 2, "discount_percent": 10}
+        }
 
 
 # ============== PRODUCT VARIANT SCHEMAS ==============
@@ -85,6 +99,9 @@ class ProductCreate(BaseModel):
     tags: Optional[str] = None
     call_script: Optional[str] = None
     confirmation_script: Optional[str] = None
+    # Phase 2: Cross-sell & Quantity Discounts
+    cross_sell_ids: Optional[List[int]] = []
+    quantity_discounts: Optional[List[QuantityDiscount]] = []
 
 
 class ProductUpdate(BaseModel):
@@ -107,6 +124,9 @@ class ProductUpdate(BaseModel):
     tags: Optional[str] = None
     call_script: Optional[str] = None
     confirmation_script: Optional[str] = None
+    # Phase 2: Cross-sell & Quantity Discounts
+    cross_sell_ids: Optional[List[int]] = None
+    quantity_discounts: Optional[List[Dict[str, Any]]] = None
 
 
 class ProductResponse(BaseModel):
@@ -143,11 +163,42 @@ class ProductResponse(BaseModel):
     is_low_stock: bool
     is_out_of_stock: bool
     stock_value: float
+    # Phase 2: Cross-sell & Quantity Discounts
+    cross_sell_ids: Optional[List[int]] = []
+    quantity_discounts: Optional[List[Dict[str, Any]]] = []
     created_at: datetime
     updated_at: datetime
     
     class Config:
         from_attributes = True
+
+
+# ═══════════════════════════════════════════════════════════════
+# CROSS-SELL PRODUCT RESPONSE (Phase 2)
+# ═══════════════════════════════════════════════════════════════
+class CrossSellProductResponse(BaseModel):
+    """Simplified product response for cross-sell suggestions"""
+    id: int
+    name: str
+    sku: str
+    selling_price: float
+    image_url: Optional[str] = None
+    stock_quantity: int
+    is_out_of_stock: bool = False
+    
+    class Config:
+        from_attributes = True
+
+
+class PriceCalculationResponse(BaseModel):
+    """Response for price calculation with quantity discounts"""
+    product_id: int
+    quantity: int
+    unit_price: float
+    subtotal: float
+    discount_percent: float
+    discount_amount: float
+    final_price: float
 
 
 class ProductListResponse(BaseModel):
