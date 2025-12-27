@@ -2,6 +2,7 @@
 
 import React, { useState } from 'react';
 import { Package, Flame, Repeat, X, Plus, Minus } from 'lucide-react';
+import CrossSellSuggestions from './CrossSellSuggestions';
 
 // ═══════════════════════════════════════════════════════════════
 // TYPES
@@ -246,7 +247,7 @@ export default function OrderBuilder({
     // ═══════════════════════════════════════════════════════════════
     const updateItemQuantity = (index: number, newQty: number) => {
         if (newQty < 1) return; // Minimum 1
-        
+
         const updated = [...orderItems];
         updated[index] = {
             ...updated[index],
@@ -457,7 +458,7 @@ export default function OrderBuilder({
                             <span className="text-foreground text-sm flex-1 truncate mr-2">
                                 {item.product_name}
                             </span>
-                            
+
                             {/* Quantity +/- Controls */}
                             <div className="flex items-center gap-2">
                                 <div className="flex items-center border border-border rounded overflow-hidden">
@@ -477,12 +478,12 @@ export default function OrderBuilder({
                                         <Plus size={12} />
                                     </button>
                                 </div>
-                                
+
                                 {/* Price */}
                                 <span className="text-emerald-500 font-semibold text-sm min-w-[70px] text-right">
                                     {(Number(item.total_price) || 0).toFixed(0)} MAD
                                 </span>
-                                
+
                                 {/* Remove Button */}
                                 <button
                                     onClick={() => removeItem(idx)}
@@ -494,6 +495,33 @@ export default function OrderBuilder({
                         </div>
                     ))}
                 </div>
+            )}
+
+            {/* Cross-sell Suggestions from Sales Optimization */}
+            {orderItems.length > 0 && (
+                <CrossSellSuggestions
+                    cartItems={orderItems.map(item => ({
+                        product_id: item.product_id,
+                        product_name: item.product_name,
+                        variant_id: item.selected_variants?.variant_id ? parseInt(item.selected_variants.variant_id) : null,
+                        variant_name: item.selected_variants?.variant_name || null,
+                        quantity: item.quantity,
+                        unit_price: item.unit_price,
+                        total_price: item.total_price,
+                        sale_type: 'normal',
+                    }))}
+                    onAddToCart={(product) => {
+                        const newItem: OrderItem = {
+                            product_id: product.id,
+                            product_name: product.name,
+                            quantity: 1,
+                            unit_price: product.selling_price,
+                            total_price: product.selling_price,
+                            selected_variants: { sale_type: 'cross-sell' },
+                        };
+                        onOrderItemsChange([...orderItems, newItem]);
+                    }}
+                />
             )}
 
             {/* Logistics Section */}
